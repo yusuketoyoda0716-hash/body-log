@@ -1,0 +1,38 @@
+/* ---- アプリ全体で使う色（ワイヤーフレームに合わせた仮の配色） ---- */
+:root {
+  --color-bg: #ffffff;
+  --color-surface: #f2f2f2;
+  --color-border: #dddddd;
+  --color-text: #222222;
+  --color-muted: #6b6b6b;
+  --color-primary: #333333;
+  --color-active: #e6e6e6;
+
+  font-family: system-ui, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* ---- 最低限のリセット ---- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+h1 {
+  margin: 0 0 16px;
+  font-size: 20px;
+}
