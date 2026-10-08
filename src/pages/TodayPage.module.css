@@ -114,9 +114,10 @@
 
 .entry {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 2px 4px 2px 12px;
   font-size: 14px;
 }
 
@@ -131,4 +132,28 @@
 .entryKcal {
   white-space: nowrap;
   color: var(--color-muted);
+}
+
+.entryRight {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.deleteButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  background: var(--color-surface);
+  color: #b42318;
 }

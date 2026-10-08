@@ -1,25 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { MealEntryDialog } from '../components/MealEntryDialog'; // ★
+import { MealEntryDialog } from '../components/MealEntryDialog';
+import { SummaryCard } from '../components/SummaryCard';
 import { MEAL_TYPES } from '../constants/meals';
 import { useRepository } from '../repositories/repositoryContext';
-import type { Food, MealEntry, MealType } from '../types'; // ★
+import type { Food, Goals, MealEntry, MealType } from '../types';
 import { addDays, formatDateLabel, isDateString, today } from '../utils/date';
+import { sumNutrients } from '../utils/nutrition';
 import styles from './TodayPage.module.css';
 
 export function TodayPage() {
   const repository = useRepository();
 
+  // 表示中の日付は URL（?date=2026-10-07）で持つ。なければ今日
   const [searchParams, setSearchParams] = useSearchParams();
   const todayString = today();
   const param = searchParams.get('date');
   const date = param && isDateString(param) ? param : todayString;
   const isToday = date === todayString;
 
+  // 読み込んだ記録を「どの日付の分か」とセットで持つ
   const [loaded, setLoaded] = useState<{ date: string; entries: MealEntry[] } | null>(null);
-  const [foods, setFoods] = useState<Food[]>([]); // ★ ダイアログで選ぶ食品
-  const [addingMeal, setAddingMeal] = useState<MealType | null>(null); // ★ どの区分に追加中か
+  const [foods, setFoods] = useState<Food[]>([]);
+  const [addingMeal, setAddingMeal] = useState<MealType | null>(null);
+  const [goals, setGoals] = useState<Goals | null>(null);
 
+  // その日の記録を読み込む
   useEffect(() => {
     let ignore = false;
     repository.getEntriesByDate(date).then((entries) => {
@@ -30,23 +36,38 @@ export function TodayPage() {
     };
   }, [repository, date]);
 
-  // ★ 登録食品を読み込む
+  // 登録食品を読み込む
   useEffect(() => {
     repository.getFoods().then(setFoods);
   }, [repository]);
 
+  // 目標を読み込む
+  useEffect(() => {
+    repository.getGoals().then(setGoals);
+  }, [repository]);
+
+  // 表示中の日付の分が読み込めていなければ「読み込み中」
   const entries = loaded?.date === date ? loaded.entries : null;
 
   function changeDate(next: string) {
     setSearchParams(next === todayString ? {} : { date: next });
   }
 
-  // ★ 追加 → その日の記録を読み直す → ダイアログを閉じる
+  // 追加 → その日の記録を読み直す → ダイアログを閉じる
   async function handleAddEntry(entry: MealEntry) {
     await repository.saveEntry(entry);
     const nextEntries = await repository.getEntriesByDate(entry.date);
     setLoaded({ date: entry.date, entries: nextEntries });
     setAddingMeal(null);
+  }
+
+  // 削除（確認してから）→ その日の記録を読み直す
+  async function handleDeleteEntry(entry: MealEntry) {
+    const label = `${entry.foodName} ${entry.amount}${entry.unit}`;
+    if (!window.confirm(`「${label}」を削除しますか？`)) return;
+    await repository.deleteEntry(entry.id);
+    const nextEntries = await repository.getEntriesByDate(entry.date);
+    setLoaded({ date: entry.date, entries: nextEntries });
   }
 
   const addingLabel = MEAL_TYPES.find((m) => m.type === addingMeal)?.label ?? '';
@@ -85,6 +106,8 @@ export function TodayPage() {
         </button>
       </div>
 
+      {entries && goals && <SummaryCard totals={sumNutrients(entries)} goals={goals} />}
+
       {entries === null ? (
         <p className={styles.empty}>読み込み中…</p>
       ) : (
@@ -97,7 +120,6 @@ export function TodayPage() {
               <section key={type} className={styles.meal}>
                 <div className={styles.mealHeader}>
                   <h2 className={styles.mealTitle}>{label}</h2>
-                  {/* ★ kcal の横に追加ボタン */}
                   <div className={styles.mealActions}>
                     <span className={styles.mealKcal}>{Math.round(kcal)} kcal</span>
                     <button
@@ -121,7 +143,28 @@ export function TodayPage() {
                           {entry.foodName} {entry.amount}
                           {entry.unit}
                         </span>
-                        <span className={styles.entryKcal}>{Math.round(entry.kcal)} kcal</span>
+                        <span className={styles.entryRight}>
+                          <span className={styles.entryKcal}>{Math.round(entry.kcal)} kcal</span>
+                          <button
+                            type="button"
+                            className={styles.deleteButton}
+                            aria-label={`${entry.foodName}を削除`}
+                            onClick={() => handleDeleteEntry(entry)}
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M6 6l12 12M18 6L6 18" />
+                            </svg>
+                          </button>
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -132,7 +175,6 @@ export function TodayPage() {
         </div>
       )}
 
-      {/* ★ 追加ダイアログ */}
       {addingMeal && (
         <MealEntryDialog
           date={date}
