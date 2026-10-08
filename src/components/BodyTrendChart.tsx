@@ -15,7 +15,7 @@ import styles from './BodyTrendChart.module.css';
 
 // index.css の色と同じ値（グラフの部品には直接色を渡す）
 const COLORS = {
-  line: '#333333',
+  line: '#1f6b4f',
   muted: '#6b6b6b',
   grid: '#e5e5e5',
   axis: '#dddddd',

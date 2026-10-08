@@ -27,7 +27,7 @@
 }
 
 .active {
-  color: var(--color-text);
+  color: var(--color-primary);
   font-weight: 700;
 }
 

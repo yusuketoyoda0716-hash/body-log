@@ -1,17 +1,24 @@
-/* ---- アプリ全体で使う色（ワイヤーフレームに合わせた仮の配色） ---- */
+/* ---- アプリ全体で使う色 ---- */
 :root {
+  --color-page: #f3f6f4; /* アプリの外側の背景 */
   --color-bg: #ffffff;
-  --color-surface: #f2f2f2;
-  --color-border: #dddddd;
-  --color-text: #222222;
-  --color-muted: #6b6b6b;
-  --color-primary: #333333;
-  --color-active: #e6e6e6;
+  --color-surface: #f1f5f3;
+  --color-border: #dbe3df;
+  --color-text: #1d2622;
+  --color-muted: #5c6b64;
+  --color-primary: #1f6b4f; /* メインの深いグリーン */
+  --color-active: #e2efe8; /* 選択中のタブなどの淡いグリーン */
+  --color-danger: #b42318;
+
+  /* P・F・C の色（色覚の違いがあっても区別できる組み合わせ） */
+  --color-protein: #2a78d6;
+  --color-fat: #eb6834;
+  --color-carbs: #1baf7a;
 
   font-family: system-ui, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   line-height: 1.5;
   color: var(--color-text);
-  background: var(--color-bg);
+  background: var(--color-page);
 }
 
 /* ---- 最低限のリセット ---- */
