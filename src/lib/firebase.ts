@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // 接続情報は .env.local から読み込む（VITE_ で始まる変数だけがブラウザに渡る）
@@ -14,4 +14,5 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app); // ログイン
+export const googleProvider = new GoogleAuthProvider(); // Google でログインするときに使う
 export const db = getFirestore(app); // データベース

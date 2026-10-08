@@ -98,3 +98,52 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+.user {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.userName {
+  font-weight: 700;
+}
+
+.outline {
+  height: 44px;
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.userRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.avatar,
+.avatarFallback {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-muted);
+}

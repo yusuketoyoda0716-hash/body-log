@@ -1,4 +1,6 @@
+import { FirebaseError } from 'firebase/app'; // ★
 import { useEffect, useState } from 'react';
+import { useAuth } from '../auth/authContext'; // ★
 import { useRepository } from '../repositories/repositoryContext';
 import type { Goals } from '../types';
 import styles from './SettingsPage.module.css';
@@ -33,12 +35,17 @@ function validate(values: FormValues): string | null {
   return null;
 }
 
+// ★ ポップアップを自分で閉じたなど、エラー表示が不要なケース
+const IGNORED_AUTH_ERRORS = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
+
 export function SettingsPage() {
   const repository = useRepository();
+  const { user, loading: authLoading, signIn, signOut } = useAuth(); // ★
   const [values, setValues] = useState<FormValues | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [resetMessage, setResetMessage] = useState<string | null>(null); // ★
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null); // ★
 
   useEffect(() => {
     repository.getGoals().then((goals) => setValues(toFormValues(goals)));
@@ -67,7 +74,6 @@ export function SettingsPage() {
     setMessage('目標を保存しました');
   }
 
-  // ★ リセット（確認してから）→ 目標フォームも初期値に戻す
   async function handleReset() {
     if (!repository.reset) return;
     const ok = window.confirm(
@@ -82,15 +88,75 @@ export function SettingsPage() {
     setResetMessage('サンプルデータに戻しました');
   }
 
+  // ★ ログイン
+  async function handleSignIn() {
+    setAuthError(null);
+    try {
+      await signIn();
+    } catch (e) {
+      if (e instanceof FirebaseError && IGNORED_AUTH_ERRORS.includes(e.code)) return;
+      setAuthError('ログインに失敗しました。時間をおいてもう一度お試しください');
+    }
+  }
+
+  // ★ ログアウト
+  async function handleSignOut() {
+    if (!window.confirm('ログアウトしますか？')) return;
+    await signOut();
+  }
+
   return (
     <>
       <h1>設定</h1>
 
+      {/* ★ アカウント欄：ログイン状態で表示を切り替え */}
       <section className={styles.card} aria-labelledby="account-title">
         <h2 id="account-title" className={styles.cardTitle}>
           アカウント
         </h2>
-        <p className={styles.text}>ゲストモードで利用中（データはこのブラウザ内に保存されます）</p>
+
+        {authLoading ? (
+          <p className={styles.text}>確認中…</p>
+        ) : user ? (
+          <>
+            <div className={styles.userRow}>
+              {user.photoURL ? (
+                <img
+                  src={user.photoURL}
+                  alt=""
+                  width={48}
+                  height={48}
+                  className={styles.avatar}
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span className={styles.avatarFallback} aria-hidden="true">
+                  {(user.displayName ?? '?').charAt(0)}
+                </span>
+              )}
+              <div className={styles.user}>
+                <span className={styles.userName}>{user.displayName ?? 'ログイン中'}</span>
+                <span className={styles.text}>{user.email}</span>
+              </div>
+            </div>
+            <p className={styles.text}>データはアカウントに保存され、他の端末と同期されます</p>
+            <button type="button" className={styles.outline} onClick={handleSignOut}>
+              ログアウト
+            </button>
+          </>
+        ) : (
+          <>
+            <p className={styles.text}>ゲストモードで利用中（データはこのブラウザ内に保存されます）</p>
+            {authError && (
+              <p className={styles.error} role="alert">
+                {authError}
+              </p>
+            )}
+            <button type="button" className={styles.outline} onClick={handleSignIn}>
+              Googleでログイン
+            </button>
+          </>
+        )}
       </section>
 
       <section className={styles.card} aria-labelledby="goals-title">
@@ -152,7 +218,6 @@ export function SettingsPage() {
         )}
       </section>
 
-      {/* ★ リセットに対応した保存先のときだけ表示 */}
       {repository.reset && (
         <section className={styles.card} aria-labelledby="data-title">
           <h2 id="data-title" className={styles.cardTitle}>
