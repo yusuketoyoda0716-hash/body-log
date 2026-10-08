@@ -1,4 +1,4 @@
-import type { Food, Nutrients, Range } from '../types';
+import type { Food, MealEntry, Nutrients, Range } from '../types';
 
 // 小数第1位で四捨五入
 const round1 = (n: number) => Math.round(n * 10) / 10;
@@ -43,4 +43,27 @@ export function describeRange(value: number, range: Range, unit: string, digits 
     return `${format(value - range.max)}${unit}オーバー`;
   }
   return '目標内';
+}
+
+// 日付ごとの合計。記録がない日は totals が null
+export function dailyTotals(
+  entries: MealEntry[],
+  dates: string[],
+): { date: string; totals: Nutrients | null }[] {
+  return dates.map((date) => {
+    const items = entries.filter((entry) => entry.date === date);
+    return { date, totals: items.length > 0 ? sumNutrients(items) : null };
+  });
+}
+
+// 平均（空なら null）
+export function averageNutrients(list: Nutrients[]): Nutrients | null {
+  if (list.length === 0) return null;
+  const total = sumNutrients(list);
+  return {
+    kcal: round1(total.kcal / list.length),
+    protein: round1(total.protein / list.length),
+    fat: round1(total.fat / list.length),
+    carbs: round1(total.carbs / list.length),
+  };
 }

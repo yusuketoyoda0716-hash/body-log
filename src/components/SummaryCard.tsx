@@ -5,9 +5,10 @@ import styles from './SummaryCard.module.css';
 type Props = {
   totals: Nutrients;
   goals: Goals;
+  title?: string; // 見出し（省略時は「合計」）
 };
 
-export function SummaryCard({ totals, goals }: Props) {
+export function SummaryCard({ totals, goals, title = '合計' }: Props) {
   // バーは目標の上限を100%として、それ以上は伸ばさない
   const kcalRatio = Math.min(totals.kcal / goals.kcal.max, 1);
   const isOver = totals.kcal > goals.kcal.max;
@@ -22,7 +23,7 @@ export function SummaryCard({ totals, goals }: Props) {
     <section className={styles.card} aria-labelledby="summary-title">
       <div className={styles.head}>
         <h2 id="summary-title" className={styles.title}>
-          合計
+          {title}
         </h2>
         <span className={styles.goal}>
           目標 {goals.kcal.min.toLocaleString()}〜{goals.kcal.max.toLocaleString()} kcal

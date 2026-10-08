@@ -36,3 +36,14 @@ export function formatDateLabel(dateString: string): string {
   const date = fromDateString(dateString);
   return `${date.getMonth() + 1}/${date.getDate()}（${WEEKDAYS[date.getDay()]}）`;
 }
+
+// 2つの日付の差（日数）。to が from より後ならプラス
+export function daysBetween(from: string, to: string): number {
+  const ms = fromDateString(to).getTime() - fromDateString(from).getTime();
+  return Math.round(ms / (24 * 60 * 60 * 1000));
+}
+
+// end を含む直近 n 日分の日付を、古い順に返す
+export function lastNDays(end: string, n: number): string[] {
+  return Array.from({ length: n }, (_, i) => addDays(end, i - (n - 1)));
+}
