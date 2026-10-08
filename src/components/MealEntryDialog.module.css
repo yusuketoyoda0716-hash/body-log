@@ -1,0 +1,17 @@
+.preview {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--color-surface);
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.kcal {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text);
+}

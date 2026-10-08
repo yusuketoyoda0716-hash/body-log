@@ -1,0 +1,134 @@
+.dateNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.navButton {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #cccccc;
+  border-radius: 8px;
+  background: var(--color-bg);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.navButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.dateCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.dateLabel {
+  margin: 0;
+  font-size: 18px;
+}
+
+.todayBadge,
+.backToday {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.backToday {
+  padding: 0;
+  border: none;
+  background: none;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.meals {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.meal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mealHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mealActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addEntryButton {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #cccccc;
+  border-radius: 20px;
+  background: var(--color-bg);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mealTitle {
+  margin: 0;
+  font-size: 15px;
+}
+
+.mealKcal {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.empty {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed #bbbbbb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.entryList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.entry {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.entry + .entry {
+  border-top: 1px solid var(--color-border);
+}
+
+.entryName {
+  min-width: 0;
+}
+
+.entryKcal {
+  white-space: nowrap;
+  color: var(--color-muted);
+}

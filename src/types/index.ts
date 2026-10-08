@@ -15,13 +15,14 @@ export type Food = Nutrients & {
 
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
-// 食事記録：記録時点の食品名と栄養素をコピーして持つ
+// 食事記録：記録時点の食品名・単位・栄養素をコピーして持つ
 export type MealEntry = Nutrients & {
   id: string;
   date: string; // 'YYYY-MM-DD'
   mealType: MealType;
   foodId: string;
   foodName: string;
+  unit: Food['unit'];
   amount: number;
 };
 
