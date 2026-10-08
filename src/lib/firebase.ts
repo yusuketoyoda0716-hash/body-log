@@ -1,8 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
 
-// 接続情報は .env.local から読み込む（VITE_ で始まる変数だけがブラウザに渡る）
+// 値は .env.local から読み込む（VITE_ で始まる名前だけがアプリから読める）
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -13,6 +12,6 @@ const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app); // ログイン
-export const googleProvider = new GoogleAuthProvider(); // Google でログインするときに使う
-export const db = getFirestore(app); // データベース
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+// Firestore はログインしたときだけ使うので、firestoreRepository.ts 側で用意する

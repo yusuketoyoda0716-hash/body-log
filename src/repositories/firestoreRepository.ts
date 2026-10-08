@@ -4,15 +4,19 @@ import {
   doc,
   getDoc,
   getDocs,
+  getFirestore,
   orderBy,
   query,
   setDoc,
   where,
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { app } from '../lib/firebase';
 import type { BodyGoal, BodyRecord, Food, Goals, MealEntry } from '../types';
 import type { DataRepository } from './DataRepository';
 import { sampleData } from './sampleData';
+
+// このファイルが読み込まれたとき（＝ログインしたとき）に Firestore を用意する
+const db = getFirestore(app);
 
 export class FirestoreRepository implements DataRepository {
   private readonly uid: string;

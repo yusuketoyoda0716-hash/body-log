@@ -12,3 +12,9 @@
   overflow-y: auto;
   padding: 16px 20px;
 }
+
+.loading {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-muted);
+}
