@@ -23,4 +23,7 @@ export interface DataRepository {
   // 体組成の目標
   getBodyGoal(): Promise<BodyGoal>;
   saveBodyGoal(goal: BodyGoal): Promise<void>;
+
+  // すべて消して初期状態に戻す（ゲスト用。保存先によっては存在しない）
+  reset?(): Promise<void>;
 }

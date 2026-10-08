@@ -90,4 +90,10 @@ export class LocalStorageRepository implements DataRepository {
     s.bodyGoal = goal;
     save(s);
   }
+
+  // ---- リセット ----
+  async reset(): Promise<void> {
+    // 消しておけば、次に読み込んだときにサンプルデータで初期化される
+    localStorage.removeItem(STORAGE_KEY);
+  }
 }
