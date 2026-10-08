@@ -9,6 +9,7 @@ const FIELDS: { key: keyof Goals; label: string; unit: string }[] = [
   { key: 'kcal', label: 'カロリー', unit: 'kcal' },
   { key: 'protein', label: 'P', unit: 'g' },
   { key: 'fat', label: 'F', unit: 'g' },
+  { key: 'carbs', label: 'C', unit: 'g' },
 ];
 
 type FormValues = Record<keyof Goals, { min: string; max: string }>;
@@ -18,6 +19,7 @@ function toFormValues(goals: Goals): FormValues {
     kcal: { min: String(goals.kcal.min), max: String(goals.kcal.max) },
     protein: { min: String(goals.protein.min), max: String(goals.protein.max) },
     fat: { min: String(goals.fat.min), max: String(goals.fat.max) },
+    carbs: { min: String(goals.carbs.min), max: String(goals.carbs.max) },
   };
 }
 
@@ -69,6 +71,7 @@ export function SettingsPage() {
       kcal: { min: Number(values.kcal.min), max: Number(values.kcal.max) },
       protein: { min: Number(values.protein.min), max: Number(values.protein.max) },
       fat: { min: Number(values.fat.min), max: Number(values.fat.max) },
+      carbs: { min: Number(values.carbs.min), max: Number(values.carbs.max) },
     };
     await repository.saveGoals(goals);
     setMessage('目標を保存しました');

@@ -16,6 +16,7 @@ export const defaultGoals: Goals = {
   kcal: { min: 1600, max: 1800 },
   protein: { min: 120, max: 150 },
   fat: { min: 30, max: 40 },
+  carbs: { min: 180, max: 240 },
 };
 
 export const defaultBodyGoal: BodyGoal = { weight: null, bodyFat: null, deadline: null };

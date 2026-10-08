@@ -16,7 +16,7 @@ export function SummaryCard({ totals, goals, title = '合計' }: Props) {
   const tiles = [
     { label: 'P', value: totals.protein, note: describeRange(totals.protein, goals.protein, 'g') },
     { label: 'F', value: totals.fat, note: describeRange(totals.fat, goals.fat, 'g') },
-    { label: 'C', value: totals.carbs, note: '目標なし' },
+    { label: 'C', value: totals.carbs, note: describeRange(totals.carbs, goals.carbs, 'g') },
   ];
 
   return (

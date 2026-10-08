@@ -32,6 +32,7 @@ export type Goals = {
   kcal: Range;
   protein: Range;
   fat: Range;
+  carbs: Range;
 };
 
 export type BodyRecord = {

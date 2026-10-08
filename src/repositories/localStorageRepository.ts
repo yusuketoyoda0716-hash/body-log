@@ -1,13 +1,18 @@
 import type { BodyGoal, BodyRecord, Food, Goals, MealEntry } from '../types';
 import type { DataRepository } from './DataRepository';
-import { createSampleData, type Store } from './sampleData';
+import { createSampleData, defaultGoals, type Store } from './sampleData';
 
 const STORAGE_KEY = 'body-log:v1';
 
 // 保存されているデータを読み込む。なければ見本データで初期化
 function load(): Store {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) return JSON.parse(raw) as Store;
+  if (raw) {
+    const store = JSON.parse(raw) as Store;
+    // 古いデータにない目標（炭水化物など）は初期値で補う
+    store.goals = { ...defaultGoals, ...store.goals };
+    return store;
+  }
   const initial = createSampleData();
   save(initial);
   return initial;

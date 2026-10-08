@@ -70,7 +70,8 @@ export class FirestoreRepository implements DataRepository {
   // ---- 食事の目標（まだ保存していなければ初期値） ----
   async getGoals(): Promise<Goals> {
     const snap = await getDoc(this.settingsDoc('goals'));
-    return snap.exists() ? (snap.data() as Goals) : defaultGoals;
+    // 古いデータにない目標（炭水化物など）は初期値で補う
+    return snap.exists() ? { ...defaultGoals, ...(snap.data() as Partial<Goals>) } : defaultGoals;
   }
   async saveGoals(goals: Goals): Promise<void> {
     await setDoc(this.settingsDoc('goals'), goals);
