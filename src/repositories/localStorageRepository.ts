@@ -1,14 +1,14 @@
 import type { BodyGoal, BodyRecord, Food, Goals, MealEntry } from '../types';
 import type { DataRepository } from './DataRepository';
-import { sampleData, type Store } from './sampleData';
+import { createSampleData, type Store } from './sampleData';
 
 const STORAGE_KEY = 'body-log:v1';
 
-// 保存されているデータを読み込む。なければサンプルデータで初期化
+// 保存されているデータを読み込む。なければ見本データで初期化
 function load(): Store {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) return JSON.parse(raw) as Store;
-  const initial = structuredClone(sampleData);
+  const initial = createSampleData();
   save(initial);
   return initial;
 }

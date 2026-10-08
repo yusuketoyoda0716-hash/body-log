@@ -13,7 +13,7 @@ import {
 import { app } from '../lib/firebase';
 import type { BodyGoal, BodyRecord, Food, Goals, MealEntry } from '../types';
 import type { DataRepository } from './DataRepository';
-import { sampleData } from './sampleData';
+import { defaultBodyGoal, defaultGoals } from './sampleData';
 
 // このファイルが読み込まれたとき（＝ログインしたとき）に Firestore を用意する
 const db = getFirestore(app);
@@ -70,7 +70,7 @@ export class FirestoreRepository implements DataRepository {
   // ---- 食事の目標（まだ保存していなければ初期値） ----
   async getGoals(): Promise<Goals> {
     const snap = await getDoc(this.settingsDoc('goals'));
-    return snap.exists() ? (snap.data() as Goals) : sampleData.goals;
+    return snap.exists() ? (snap.data() as Goals) : defaultGoals;
   }
   async saveGoals(goals: Goals): Promise<void> {
     await setDoc(this.settingsDoc('goals'), goals);
@@ -88,7 +88,7 @@ export class FirestoreRepository implements DataRepository {
   // ---- 体組成の目標 ----
   async getBodyGoal(): Promise<BodyGoal> {
     const snap = await getDoc(this.settingsDoc('bodyGoal'));
-    return snap.exists() ? (snap.data() as BodyGoal) : sampleData.bodyGoal;
+    return snap.exists() ? (snap.data() as BodyGoal) : defaultBodyGoal;
   }
   async saveBodyGoal(goal: BodyGoal): Promise<void> {
     await setDoc(this.settingsDoc('bodyGoal'), goal);
