@@ -1,75 +1,124 @@
-# React + TypeScript + Vite
+# body-log
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+食事のカロリー・PFCと、体重・体脂肪率を記録するWebアプリです。
+減量・体づくりのために毎日続けていた食事記録を、自分で使うためにアプリにしました。
 
-Currently, two official plugins are available:
+**公開URL：https://body-log-azure.vercel.app**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+ログインなしの「ゲストモード」で、見本データ（直近2週間分の記録）が入った状態をそのまま試せます。
 
-## React Compiler
+## スクリーンショット
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| 今日 | 推移 | 体重 |
+| :---: | :---: | :---: |
+| ![今日の記録画面](docs/screenshots/today.png) | ![推移画面](docs/screenshots/trends.png) | ![体重画面](docs/screenshots/body.png) |
 
-## Expanding the ESLint configuration
+## 設計（ワイヤーフレーム）
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+実装の前に、画面構成と各画面に載せる項目をワイヤーフレームで決めてから作りました。
+見た目の作り込みは後回しにして、「どの画面に何を表示するか」から必要なデータや処理を洗い出しています。
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+![ワイヤーフレーム（今日・食品・体重・推移・設定）](docs/wireframes/overview.png)
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 主な機能
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **食事の記録**：朝食・昼食・夕食・間食ごとに、登録した食品と量を記録。カロリーとPFCは自動で計算
+- **1日の合計と目標との差**：カロリーのバーをP・F・Cのカロリー内訳で色分けし、目標の下限・上限との位置関係を表示
+- **食品の管理**：登録食品の検索・追加・編集・削除
+- **推移**：直近7日／30日の1日平均と、日別カロリー（PFC積み上げ）のグラフ
+- **体重・体脂肪率**：記録、前回との差、目標までの残りと期限までの日数、推移グラフ
+- **目標の設定**：カロリー・P・F・Cそれぞれの下限と上限
+- **2つの利用モード**
+  - ゲスト：データはブラウザ内に保存（見本データ付き・いつでもリセット可能）
+  - Googleログイン：Cloud Firestore に保存し、スマホとPCで同期
 
-```
+## 使用技術
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+| 分類 | 技術 |
+| --- | --- |
+| フロントエンド | React / TypeScript / Vite / React Router / CSS Modules |
+| グラフ | Recharts |
+| 認証・データベース | Firebase Authentication（Googleログイン）/ Cloud Firestore |
+| ホスティング | Vercel |
+| 開発ツール | ESLint / Git・GitHub |
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 設計で工夫したこと
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 1. 保存先を差し替えられる設計
+
+データの保存・取得を `DataRepository` というインターフェースにまとめ、画面はインターフェースだけに依存する形にしました。
 
 ```
+画面（React） → DataRepository（インターフェース）
+                    ├─ LocalStorageRepository（ゲスト）
+                    └─ FirestoreRepository（ログイン時）
+```
+
+- 最初から全メソッドを非同期（Promise）で統一していたため、Firestore 版を追加したときに**画面側のコードは変更せずに**保存先を切り替えられました
+- ログイン状態に応じて使うリポジトリを React Context で切り替えています
+- 「サンプルデータに戻す」はゲスト専用の機能なので、インターフェースのオプショナルメソッド（`reset?()`）にし、実装している保存先のときだけボタンを表示しています。本番データを一括削除できる経路を作らないためです
+
+### 2. 記録時点の値を残す
+
+食事記録には、食品IDだけでなく**記録した時点の食品名・単位・栄養素をコピーして保存**しています。登録食品の数値を後から直したり、食品を削除したりしても、過去の記録は変わりません。
+
+### 3. 初回の読み込みを半分以下に
+
+ビルド時の「500kBを超えるファイルがある」という警告をきっかけに、バンドルの中身を確認しました。
+
+- グラフ（Recharts）を使う「体重」「推移」画面を `React.lazy` で遅延読み込み
+- Firestore はログインした人しか使わないため、リポジトリごと `import()` で遅延読み込み
+
+その結果、最初に読み込むJavaScriptが **842kB → 383kB**（gzip後 258kB → 121kB）になり、ゲストで開いた人はグラフやデータベースのライブラリを読み込まずに使い始められます。
+
+### 4. 日付と集計の扱い
+
+- 日付は `YYYY-MM-DD` の文字列で扱い、`toISOString()`（UTC）を使わずローカルの日付から組み立てて、日本時間の早朝に前日扱いになるずれを防いでいます
+- 表示中の日付はURL（`?date=`）に持たせ、再読み込みやブラウザの「戻る」でも同じ日を表示します
+- 平均やグラフでは**記録がない日を0kcalとして数えない**ようにし、記録忘れで平均が下がらないようにしています
+
+### 5. セキュリティ
+
+- Firestore のセキュリティルールで、`users/{uid}/` 以下は**ログインしている本人だけ**が読み書きできるようにしています
+- Firebase の設定値は環境変数（`.env.local` / Vercel の Environment Variables）で管理し、リポジトリには含めていません
+
+### 6. 見やすさ・使いやすさ
+
+- P・F・Cの3色は、色覚の違いがあっても隣り合って区別できるかを検証して選び、色だけに頼らず文字と数値も並べて表示しています
+- アイコンだけのボタンには `aria-label`、表には `<table>` と `scope` を使うなど、読み上げにも配慮しています
+- スマホでの片手操作を想定し、ボタンなどのタップ領域は44px以上にしています
+
+## データ構成（Firestore）
+
+```
+users/{uid}/
+  ├─ foods/{foodId}          … 登録食品
+  ├─ entries/{entryId}       … 食事記録
+  ├─ bodyRecords/{date}      … 体重・体脂肪率（日付をIDにして1日1件）
+  └─ settings/
+       ├─ goals              … 1日の目標（kcal・P・F・C）
+       └─ bodyGoal           … 体組成の目標
+```
+
+## ローカルでの起動
+
+```bash
+git clone https://github.com/yusuketoyoda0716-hash/body-log.git
+cd body-log
+npm install
+```
+
+`.env.example` をコピーして `.env.local` を作り、Firebase の設定値を入れます。
+
+```bash
+cp .env.example .env.local
+npm run dev
+```
+
+ゲストモードだけなら、Firebase の設定がなくても画面の確認はできます。
+
+## 今後の予定
+
+- **成分表から食品を登録**：文部科学省「日本食品標準成分表」のデータから食品を検索して登録
+- **Claude との連携（MCPサーバー）**：Claude のチャットで食べたものを伝えると、成分表の値で計算して body-log に記録される仕組み
+- **PWA対応**：スマホのホーム画面に追加して、アプリのように使えるようにする
