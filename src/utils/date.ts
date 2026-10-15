@@ -14,9 +14,15 @@ export function fromDateString(dateString: string): Date {
   return new Date(y, m - 1, d);
 }
 
-// 今日の日付
+// 1日の区切りの時刻。0〜3時は前の日として扱う（夜中に食べた分を前の日の記録にするため）
+// Claude連携のサーバー（api/mcp.ts）も同じく午前3時区切りにしている
+const DAY_START_HOUR = 3;
+
+// 今日の日付（午前3時区切り）
 export function today(): string {
-  return toDateString(new Date());
+  const now = new Date();
+  now.setHours(now.getHours() - DAY_START_HOUR);
+  return toDateString(now);
 }
 
 // 日付を n 日ずらす（マイナスなら過去）

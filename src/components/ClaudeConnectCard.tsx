@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { McpConnection } from '../lib/mcpToken';
+import { copyText } from '../utils/clipboard';
+import { ClaudePromptGuide } from './ClaudePromptGuide';
 import styles from './ClaudeConnectCard.module.css';
 
 // Firestore を使うので、ログインしているときに初めて読み込む
@@ -78,24 +80,10 @@ export function ClaudeConnectCard() {
     }
   }
 
-  // URLをコピーする
-  //   1. ふつうはクリップボードAPI（navigator.clipboard）を使う
-  //   2. ブラウザやアプリ内ブラウザによっては使えないので、入力欄を選択して昔ながらの方法で試す
-  //   3. それもだめなら、URLを選択した状態にして、手でコピーしてもらう
+  // URLをコピーする（できなければ、URLを選択した状態にして手でコピーしてもらう）
   async function handleCopy() {
     if (!newUrl) return;
-    try {
-      await navigator.clipboard.writeText(newUrl);
-      setCopyState('done');
-      return;
-    } catch {
-      // 次の方法を試す
-    }
-
-    const input = urlInputRef.current;
-    input?.focus();
-    input?.select();
-    const ok = document.execCommand?.('copy') ?? false;
+    const ok = await copyText(newUrl, urlInputRef.current);
     setCopyState(ok ? 'done' : 'failed');
   }
 
@@ -168,6 +156,8 @@ export function ClaudeConnectCard() {
               </button>
             )}
           </div>
+
+          <ClaudePromptGuide />
         </>
       )}
     </section>

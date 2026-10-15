@@ -8,6 +8,7 @@
 //   search_food      … 登録食品と成分表から食品を探す
 //   add_meal_entries … 食事をまとめて記録する
 //   get_day_summary  … 1日の記録・合計・目標との差を見る
+//   delete_meal_entries … 記録を消す（間違えたときの訂正用）
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
@@ -66,9 +67,24 @@ const MEAL_LABELS: Record<MealType, string> = {
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-// 日本時間の今日（YYYY-MM-DD）。サーバーはUTCで動くので9時間ずらす
-function todayInJapan(): string {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+// 日本時間の今の日時。サーバーはUTCで動くので9時間ずらし、UTCとして読む
+function nowInJapan(): Date {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000);
+}
+
+// 記録の「今日」（YYYY-MM-DD）。午前3時を区切りにして、0〜3時の食事は前の日にする
+function recordDateToday(): string {
+  return new Date(nowInJapan().getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+// 食事区分が指定されなかったときに、今の時間帯から決める
+//   3:00〜10:29 朝食 / 10:30〜15:59 昼食 / 16:00〜翌2:59 夕食（間食は指定されたときだけ）
+function mealTypeNow(): MealType {
+  const now = nowInJapan();
+  const minutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  if (minutes >= 3 * 60 && minutes < 10 * 60 + 30) return 'breakfast';
+  if (minutes >= 10 * 60 + 30 && minutes < 16 * 60) return 'lunch';
+  return 'dinner';
 }
 
 // 「基準量あたりの値」と量から、その量の値を出す（例：100gあたり × 150g）
@@ -95,11 +111,13 @@ function errorResult(message: string) {
 const dateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
-  .describe('日付（YYYY-MM-DD）。省略すると日本時間の今日');
+  .describe('日付（YYYY-MM-DD）。省略すると日本時間の今日（午前3時区切り。0〜3時は前の日）');
 
 const mealTypeSchema = z
   .enum(['breakfast', 'lunch', 'dinner', 'snack'])
-  .describe('breakfast=朝食 / lunch=昼食 / dinner=夕食 / snack=間食');
+  .describe(
+    'breakfast=朝食 / lunch=昼食 / dinner=夕食 / snack=間食。省略すると今の時間帯から決める（間食にはならない）',
+  );
 
 const amountSchema = z.number().positive();
 
@@ -108,7 +126,7 @@ const entrySchema = z.discriminatedUnion('source', [
   z.object({
     source: z.literal('registered'),
     date: dateSchema.optional(),
-    mealType: mealTypeSchema,
+    mealType: mealTypeSchema.optional(),
     foodId: z.string().describe('search_food の registered にある id'),
     amount: amountSchema.describe('量（その食品の単位で。例：150g なら 150、2個 なら 2）'),
   }),
@@ -116,7 +134,7 @@ const entrySchema = z.discriminatedUnion('source', [
   z.object({
     source: z.literal('mext'),
     date: dateSchema.optional(),
-    mealType: mealTypeSchema,
+    mealType: mealTypeSchema.optional(),
     code: z.string().describe('search_food の mext にある code'),
     amount: amountSchema.describe('グラム数'),
     name: z.string().optional().describe('アプリに表示する名前（例：鶏むね肉）。省略すると成分表の名前'),
@@ -125,7 +143,7 @@ const entrySchema = z.discriminatedUnion('source', [
   z.object({
     source: z.literal('custom'),
     date: dateSchema.optional(),
-    mealType: mealTypeSchema,
+    mealType: mealTypeSchema.optional(),
     name: z.string().min(1).describe('食品名。品目がなく合計だけなら「夕食（まとめ）」など'),
     amount: amountSchema.describe('量'),
     unit: z.enum(['g', '個', '杯', '食']).describe('量の単位'),
@@ -146,8 +164,15 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
    - なければ mext（日本食品標準成分表。値は100gあたり）から、部位や調理法（生・ゆで・焼き など）まで合うものを選ぶ
    - 鶏肉は特に指定がなければ［若どり］、ごはんは「こめ ［水稲めし］ 精白米 うるち米」を選ぶ
    - 候補が複数あって決めきれないときは、ユーザーに確認する
-2. add_meal_entries でまとめて記録する（日付・食事区分を付ける）
-3. get_day_summary でその日の合計と目標との差を確認し、ユーザーに伝える
+2. add_meal_entries でまとめて記録する
+   - 日付・食事区分をユーザーが言ったときだけ指定する。言わなかったときは省略する（サーバーが午前3時区切りの日付と、時間帯から食事区分を決める）
+3. 記録の結果（days）にその日の合計と目標との差が入っているので、ユーザーに伝える。記録した日付と食事区分も必ず伝える
+
+記録を直すとき（「間違えた」「消して」「量が違う」など）：
+1. get_day_summary でその日の記録を確認する（各記録に id がある）
+2. delete_meal_entries で該当の記録を消し、必要なら add_meal_entries で正しく記録し直す
+
+登録食品にも成分表にもない食品（市販品・外食など）は、ウェブで調べた値を source を custom にして記録し、どこで調べたかをユーザーに伝える。
 
 すでに計算済みの記録（過去のチャットなど）を取り込むときは、source を custom にして、書かれている値をそのまま記録する。
 「何個」「何杯」で、成分表（グラム）しか候補がないときは、グラム数を見積もってよいが、見積もったことをユーザーに伝える。`;
@@ -184,6 +209,7 @@ function createServer(uid: string) {
         meal: MEAL_LABELS[type],
         total: sumNutrients(items),
         items: items.map((e) => ({
+          id: e.id,
           name: e.foodName,
           amount: `${e.amount}${e.unit}`,
           kcal: e.kcal,
@@ -208,7 +234,7 @@ function createServer(uid: string) {
   }
 
   const server = new McpServer(
-    { name: 'body-log', version: '1.1.0' },
+    { name: 'body-log', version: '1.2.0' },
     { instructions: INSTRUCTIONS },
   );
 
@@ -266,12 +292,17 @@ function createServer(uid: string) {
     async ({ entries }) => {
       const registered = await getRegisteredFoods();
       const mext = getMextFoods();
-      const today = todayInJapan();
+      const today = recordDateToday();
+      const mealTypeDefault = mealTypeNow();
 
       // まず全件を組み立てる。1件でも見つからない食品があれば、何も保存しない
       const docs: MealEntry[] = [];
       for (const [i, input] of entries.entries()) {
-        const base = { id: randomUUID(), date: input.date ?? today, mealType: input.mealType };
+        const base = {
+          id: randomUUID(),
+          date: input.date ?? today,
+          mealType: input.mealType ?? mealTypeDefault,
+        };
 
         if (input.source === 'registered') {
           const food = registered.find((f) => f.id === input.foodId);
@@ -318,6 +349,7 @@ function createServer(uid: string) {
       const dates = [...new Set(docs.map((d) => d.date))].sort();
       return textResult({
         added: docs.map((d) => ({
+          id: d.id,
           date: d.date,
           meal: MEAL_LABELS[d.mealType],
           name: d.foodName,
@@ -342,7 +374,46 @@ function createServer(uid: string) {
       inputSchema: { date: dateSchema.optional() },
       annotations: { readOnlyHint: true },
     },
-    async ({ date }) => textResult(await daySummary(date ?? todayInJapan())),
+    async ({ date }) => textResult(await daySummary(date ?? recordDateToday())),
+  );
+
+  // ---- 記録を消す（訂正用） ----
+  server.registerTool(
+    'delete_meal_entries',
+    {
+      title: '記録を消す',
+      description:
+        '食事の記録を消します。間違えて記録したときの訂正に使います。id は get_day_summary や add_meal_entries の結果にあります。',
+      inputSchema: {
+        ids: z.array(z.string().min(1)).min(1).max(50).describe('消す記録の id'),
+      },
+      annotations: { destructiveHint: true },
+    },
+    async ({ ids }) => {
+      const refs = ids.map((id) => userDoc.collection('entries').doc(id));
+      const snaps = await Promise.all(refs.map((ref) => ref.get()));
+
+      // 1件でも見つからなければ、何も消さない
+      const missing = ids.filter((_, i) => !snaps[i].exists);
+      if (missing.length > 0) return errorResult(`記録が見つかりません：${missing.join(', ')}`);
+
+      const deleted = snaps.map((snap) => snap.data() as MealEntry);
+      const batch = db.batch();
+      for (const ref of refs) batch.delete(ref);
+      await batch.commit();
+
+      const dates = [...new Set(deleted.map((d) => d.date))].sort();
+      return textResult({
+        deleted: deleted.map((d) => ({
+          date: d.date,
+          meal: MEAL_LABELS[d.mealType],
+          name: d.foodName,
+          amount: `${d.amount}${d.unit}`,
+          kcal: d.kcal,
+        })),
+        days: await Promise.all(dates.map(daySummary)),
+      });
+    },
   );
 
   return server;
