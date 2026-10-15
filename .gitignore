@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 成分表の元データ（Excel）はリポジトリに含めない
+scripts/mext/*.xlsx
