@@ -54,7 +54,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: readonl
   return (
     <div className={styles.tooltip}>
       <div className={styles.tooltipHead}>
-        {datum.label}　{datum.kcal?.toLocaleString()} kcal
+        {datum.label}{'\u3000'}{datum.kcal?.toLocaleString()} kcal
       </div>
       {rows.map((row) => (
         <div key={row.label} className={styles.tooltipRow}>

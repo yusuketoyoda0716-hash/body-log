@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Food } from '../types';
+import { displayName, type MextFood } from '../utils/mextFoods';
+import { MextFoodSearch } from './MextFoodSearch';
 import styles from './FoodFormDialog.module.css';
 
 const UNITS: Food['unit'][] = ['g', '個', '杯', '食'];
@@ -71,6 +73,10 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete }: Props
     initialFood ? toFormValues(initialFood) : emptyValues,
   );
   const [error, setError] = useState<string | null>(null);
+  // 新規追加のときだけ「成分表から探す」を選べる。最初は成分表の検索を出す
+  const [mode, setMode] = useState<'search' | 'manual'>(initialFood ? 'manual' : 'search');
+  // 成分表から選んだ食品（入力欄の上に「〇〇の値を入れました」と出すため）
+  const [picked, setPicked] = useState<MextFood | null>(null);
 
   // 画面に出たらダイアログを開く
   useEffect(() => {
@@ -80,6 +86,22 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete }: Props
 
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // 成分表の食品を選んだら、100gあたりの値を入力欄に入れて「自分で入力」に切り替える
+  function handleSelect(food: MextFood) {
+    setValues({
+      name: displayName(food.name),
+      unit: 'g',
+      baseAmount: '100',
+      kcal: String(food.kcal),
+      protein: String(food.protein),
+      fat: String(food.fat),
+      carbs: String(food.carbs),
+    });
+    setPicked(food);
+    setError(null);
+    setMode('manual');
   }
 
   function handleSubmit(e: { preventDefault: () => void }) {
@@ -113,58 +135,91 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete }: Props
           {initialFood ? '食品を編集' : '食品を追加'}
         </h2>
 
-        <label className={styles.field}>
-          食品名
-          <input
-            type="text"
-            value={values.name}
-            onChange={(e) => update('name', e.target.value)}
-          />
-        </label>
-
-        <div className={styles.row}>
-          <label className={styles.field}>
-            基準量
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={values.baseAmount}
-              onChange={(e) => update('baseAmount', e.target.value)}
-            />
-          </label>
-          <label className={styles.field}>
-            単位
-            <select
-              value={values.unit}
-              onChange={(e) => update('unit', e.target.value as Food['unit'])}
+        {!initialFood && (
+          <div className={styles.tabs} role="group" aria-label="追加のしかた">
+            <button
+              type="button"
+              className={styles.tab}
+              aria-pressed={mode === 'search'}
+              onClick={() => setMode('search')}
             >
-              {UNITS.map((unit) => (
-                <option key={unit} value={unit}>
-                  {unit}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <p className={styles.hint}>この量あたりの栄養素を入力します（例：100g あたり、1個 あたり）</p>
+              成分表から探す
+            </button>
+            <button
+              type="button"
+              className={styles.tab}
+              aria-pressed={mode === 'manual'}
+              onClick={() => setMode('manual')}
+            >
+              自分で入力
+            </button>
+          </div>
+        )}
 
-        <div className={styles.grid}>
-          {nutrientFields.map((field) => (
-            <label key={field.key} className={styles.field}>
-              {field.label}
+        {mode === 'search' ? (
+          <MextFoodSearch onSelect={handleSelect} />
+        ) : (
+          <>
+            {picked && (
+              <p className={styles.picked}>
+                成分表「{displayName(picked.name)}」の値を入れました。食品名は呼びやすい名前に変えられます
+              </p>
+            )}
+
+            <label className={styles.field}>
+              食品名
               <input
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="any"
-                value={values[field.key]}
-                onChange={(e) => update(field.key, e.target.value)}
+                type="text"
+                value={values.name}
+                onChange={(e) => update('name', e.target.value)}
               />
             </label>
-          ))}
-        </div>
+
+            <div className={styles.row}>
+              <label className={styles.field}>
+                基準量
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="any"
+                  value={values.baseAmount}
+                  onChange={(e) => update('baseAmount', e.target.value)}
+                />
+              </label>
+              <label className={styles.field}>
+                単位
+                <select
+                  value={values.unit}
+                  onChange={(e) => update('unit', e.target.value as Food['unit'])}
+                >
+                  {UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <p className={styles.hint}>この量あたりの栄養素を入力します（例：100g あたり、1個 あたり）</p>
+
+            <div className={styles.grid}>
+              {nutrientFields.map((field) => (
+                <label key={field.key} className={styles.field}>
+                  {field.label}
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="any"
+                    value={values[field.key]}
+                    onChange={(e) => update(field.key, e.target.value)}
+                  />
+                </label>
+              ))}
+            </div>
+          </>
+        )}
 
         {error && (
           <p className={styles.error} role="alert">
@@ -181,7 +236,7 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete }: Props
           <button type="button" className={styles.cancel} onClick={onClose}>
             キャンセル
           </button>
-          <button type="submit" className={styles.save}>
+          <button type="submit" className={styles.save} disabled={mode === 'search'}>
             保存
           </button>
         </div>
