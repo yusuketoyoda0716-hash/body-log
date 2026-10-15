@@ -44,6 +44,11 @@ const REPLACEMENTS: Record<string, string> = {
   ささ身: 'ささみ',
 };
 
+// よく食べる「定番」の食品。同じくらい合うときは、これを含む名前を上に出す
+//   例：「ごはん」なら陸稲や軟めしより、ふつうの白いごはん（水稲めし 精白米 うるち米）
+//       「鶏むね」なら親鶏より、スーパーで売っている若どり
+const STANDARD_NAMES = ['［水稲めし］ 精白米 うるち米', '［若どり・主品目］'];
+
 // 長い言葉から先に置きかえる（「玉子」を「玉」+「子」より先に見る）
 const REPLACE_PATTERN = new RegExp(
   Object.keys(REPLACEMENTS)
@@ -132,6 +137,7 @@ export function searchFoods<T extends { name: string }>(
 
     // 成分表の［副品目］は皮・内臓など。「鶏むね」で鶏皮が先頭に来ないよう、少しだけ下げる
     if (food.name.includes('副品目')) total += 0.05;
+    if (STANDARD_NAMES.some((s) => food.name.includes(s))) total -= 0.05;
 
     // 同じくらい合うなら、名前が短い（シンプルな）ものを上に出す
     if (matched) hits.push({ food, score: total + target.length / 1000 });
