@@ -7,6 +7,7 @@
 
 ログインなしの「ゲストモード」で、見本データ（直近2週間分の記録）が入った状態をそのまま試せます。
 Googleでログインすると、Claude のチャットで食べたものを伝えるだけで記録できる「Claude連携」も使えます。
+スマホでは、公開URLを開いて「ホーム画面に追加」（Android の Chrome は「アプリをインストール」）を選ぶと、アプリとして使えます。
 
 ## スクリーンショット
 
@@ -171,8 +172,6 @@ npm run dev
 ```
 
 ゲストモードだけなら、Firebase の設定がなくても画面の確認はできます。
-
-スマホでは、公開URLを開いて「ホーム画面に追加」（Android の Chrome は「アプリをインストール」）を選ぶと、アプリとして使えます。
 
 - Claude連携のサーバー（`api/mcp.ts`）は Vercel Functions として動くため、`npm run dev` では動きません。Vercel にデプロイし、環境変数 `FIREBASE_SERVICE_ACCOUNT` に Firebase のサービスアカウントの鍵（JSON）を設定して使います
 - 成分表の JSON は `src/data/mextFoods.json` に含めています。作り直すときは、文部科学省のサイトから「日本食品標準成分表（八訂）増補2023年」の第2章（本表）の Excel をダウンロードして `scripts/mext/seibunhyo.xlsx` に置き、`npm run convert:mext` を実行します
