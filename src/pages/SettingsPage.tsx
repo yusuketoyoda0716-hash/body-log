@@ -1,6 +1,7 @@
 import { FirebaseError } from 'firebase/app'; // ★
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/authContext'; // ★
+import { ClaudeConnectCard } from '../components/ClaudeConnectCard';
 import { useRepository } from '../repositories/repositoryContext';
 import type { Goals } from '../types';
 import styles from './SettingsPage.module.css';
@@ -161,6 +162,8 @@ export function SettingsPage() {
           </>
         )}
       </section>
+
+      <ClaudeConnectCard />
 
       <section className={styles.card} aria-labelledby="goals-title">
         <h2 id="goals-title" className={styles.cardTitle}>
