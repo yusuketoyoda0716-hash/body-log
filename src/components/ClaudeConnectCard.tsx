@@ -90,6 +90,22 @@ export function ClaudeConnectCard() {
   return (
     <section className={styles.card} aria-labelledby="claude-title">
       <h2 id="claude-title" className={styles.cardTitle}>
+        {/* チャットで記録することを表すアイコン（吹き出し） */}
+        <span className={styles.titleIcon} aria-hidden="true">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-4 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />
+            <path d="M8 11h.01M12 11h.01M16 11h.01" strokeWidth="2.6" />
+          </svg>
+        </span>
         Claude連携
       </h2>
       <p className={styles.text}>
