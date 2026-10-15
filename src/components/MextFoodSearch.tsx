@@ -32,7 +32,7 @@ export function MextFoodSearch({ onSelect }: Props) {
         食品名で検索
         <input
           type="search"
-          placeholder="例：ごはん、とり むね、カツオ"
+          placeholder="例：鶏むね肉、ごはん、カツオ"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoFocus
