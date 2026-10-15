@@ -1,4 +1,5 @@
 import type { BodyGoal, BodyRecord, Food, Goals, MealEntry, MealType } from '../types';
+import { defaultGoals } from '../constants/goals';
 import { addDays, today } from '../utils/date';
 import { calcNutrients } from '../utils/nutrition';
 
@@ -11,13 +12,8 @@ export type Store = {
   bodyGoal: BodyGoal;
 };
 
-// 目標の初期値（ログインしたばかりの人にも使う）
-export const defaultGoals: Goals = {
-  kcal: { min: 1600, max: 1800 },
-  protein: { min: 120, max: 150 },
-  fat: { min: 30, max: 40 },
-  carbs: { min: 180, max: 240 },
-};
+// 目標の初期値は constants/goals.ts に置いている（サーバーと共通）
+export { defaultGoals };
 
 export const defaultBodyGoal: BodyGoal = { weight: null, bodyFat: null, deadline: null };
 

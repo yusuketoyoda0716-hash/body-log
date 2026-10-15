@@ -1,4 +1,4 @@
-import type { Food, MealEntry, Nutrients, Range } from '../types';
+import type { Food, MealEntry, Nutrients, Range } from '../types/index.js'; // サーバー（api/mcp.ts）からも読み込むので拡張子付きで書く
 
 // 小数第1位で四捨五入
 const round1 = (n: number) => Math.round(n * 10) / 10;

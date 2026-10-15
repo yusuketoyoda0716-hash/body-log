@@ -130,6 +130,9 @@ export function searchFoods<T extends { name: string }>(
       total += score;
     }
 
+    // 成分表の［副品目］は皮・内臓など。「鶏むね」で鶏皮が先頭に来ないよう、少しだけ下げる
+    if (food.name.includes('副品目')) total += 0.05;
+
     // 同じくらい合うなら、名前が短い（シンプルな）ものを上に出す
     if (matched) hits.push({ food, score: total + target.length / 1000 });
   }
