@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../auth/authContext';
 import type { McpConnection } from '../lib/mcpToken';
 import styles from './ClaudeConnectCard.module.css';
@@ -20,7 +20,9 @@ export function ClaudeConnectCard() {
   // 発行した直後だけ表示する接続用URL
   const [newUrl, setNewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  // 'done' = コピーできた / 'failed' = 自動でコピーできなかった（手でコピーしてもらう）
+  const [copyState, setCopyState] = useState<'idle' | 'done' | 'failed'>('idle');
+  const urlInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export function ClaudeConnectCard() {
       const token = await m.issueMcpToken(uid);
       setNewUrl(`${window.location.origin}/api/mcp?token=${token}`);
       setConnection(await m.getMcpConnection(uid));
-      setCopied(false);
+      setCopyState('idle');
     } catch {
       setError('発行できませんでした。時間をおいてもう一度お試しください');
     } finally {
@@ -76,10 +78,25 @@ export function ClaudeConnectCard() {
     }
   }
 
+  // URLをコピーする
+  //   1. ふつうはクリップボードAPI（navigator.clipboard）を使う
+  //   2. ブラウザやアプリ内ブラウザによっては使えないので、入力欄を選択して昔ながらの方法で試す
+  //   3. それもだめなら、URLを選択した状態にして、手でコピーしてもらう
   async function handleCopy() {
     if (!newUrl) return;
-    await navigator.clipboard.writeText(newUrl);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(newUrl);
+      setCopyState('done');
+      return;
+    } catch {
+      // 次の方法を試す
+    }
+
+    const input = urlInputRef.current;
+    input?.focus();
+    input?.select();
+    const ok = document.execCommand?.('copy') ?? false;
+    setCopyState(ok ? 'done' : 'failed');
   }
 
   return (
@@ -112,11 +129,22 @@ export function ClaudeConnectCard() {
             <div className={styles.urlBox}>
               <label className={styles.field}>
                 接続用URL（この画面を離れると二度と表示されません）
-                <input type="text" readOnly value={newUrl} onFocus={(e) => e.target.select()} />
+                <input
+                  ref={urlInputRef}
+                  type="text"
+                  readOnly
+                  value={newUrl}
+                  onFocus={(e) => e.target.select()}
+                />
               </label>
               <button type="button" className={styles.primary} onClick={handleCopy}>
-                {copied ? 'コピーしました' : 'URLをコピー'}
+                {copyState === 'done' ? 'コピーしました' : 'URLをコピー'}
               </button>
+              {copyState === 'failed' && (
+                <p className={styles.error} role="alert">
+                  自動でコピーできませんでした。URLを選択した状態にしたので、長押し（PCは Ctrl+C）でコピーしてください
+                </p>
+              )}
               <p className={styles.note}>
                 Claudeの設定にある「コネクタ」で、カスタムコネクタのURLとして貼り付けてください。
                 URLに合言葉が含まれるので、他の人には見せないでください。
