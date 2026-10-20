@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Food, RecipeIngredient } from '../types';
 import { searchFoods } from '../utils/foodSearch';
-import { displayName, type MextFood } from '../utils/mextFoods';
+import { pickedName, type MextFood } from '../utils/mextFoods';
 import formStyles from './FoodFormDialog.module.css';
 import { MextFoodSearch } from './MextFoodSearch';
 import styles from './IngredientPicker.module.css';
@@ -84,7 +84,7 @@ export function IngredientPicker({ foods, onPick, onCancel }: Props) {
 
   function pickMext(food: MextFood) {
     onPick({
-      name: displayName(food.name),
+      name: pickedName(food),
       unit: 'g',
       baseAmount: 100,
       amount: 100,

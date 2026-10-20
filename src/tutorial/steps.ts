@@ -134,7 +134,7 @@ export const STEPS: TutorialStep[] = [
     route: '/settings',
     target: 'claude-card',
     title: 'Claudeのチャットで記録する',
-    body: 'つないだあとは「昼に鶏むね200gとごはん150g」のように送るだけで記録できます（Googleでログインすると使えます）。',
+    body: 'つないだあとは「昼に鶏むね200gとごはん150g」のように送るだけで記録できます。料理やパッケージの写真を送っても、量を見積もって確認してから記録してくれます（Googleでログインすると使えます）。',
   },
   {
     chapter: 'claude',

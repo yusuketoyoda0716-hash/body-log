@@ -103,3 +103,21 @@
   font-size: 11px;
   color: var(--color-muted);
 }
+
+/* 「よく食べるもの」と「成分表のすべての候補」の見出し */
+.groupTitle {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+/* よく食べるもの：「肉」のように多く出るときは、この中だけスクロールさせる */
+.popularList {
+  max-height: 400px;
+  border-color: var(--color-primary);
+}
+
+/* もとにした成分表の食品名 */
+.origin {
+  font-size: 11px;
+  color: var(--color-muted);
+}

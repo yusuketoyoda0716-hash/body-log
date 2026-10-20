@@ -249,6 +249,12 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
 3. 作るたびに量が違うとき（「今日は豚肉400gで作った」など）は、get_recipe で前回の材料を読み出し、変わったところだけ直して save_recipe で登録し直す（同じ名前なら上書き。過去の記録は変わらない）
 4. 食べたときは add_meal_entries の recipe で「1食」「0.5食」のように記録する
 
+写真が送られたとき：
+- 料理の写真：料理ごとに食品と量（グラム）を見積もり、記録する前に一覧（食品・量・kcal・PFC）を見せてユーザーに確認する。確認がとれてから add_meal_entries で記録する
+  - 料理はできるだけ ごはん・おかず・汁物 のように分け、それぞれ search_food で探す（成分表には から揚げ・ハンバーグ・カレー などできあがりの料理もある）
+  - 見積もりであることを伝える。写真から見積もった値を custom で記録するときは saveAsFood を false にする（見積もりの値を登録食品に残さない）
+- パッケージや栄養成分表示の写真：書かれている値を読み取り、save_food で登録してから記録する。valueSource には「パッケージの栄養成分表示」のように書く
+
 すでに計算済みの記録（過去のチャットなど）を取り込むときは、source を custom にして、書かれている値をそのまま記録する。
 「何個」「何杯」で、成分表（グラム）しか候補がないときは、グラム数を見積もってよいが、見積もったことをユーザーに伝える。`;
 
@@ -335,7 +341,7 @@ function createServer(uid: string) {
   }
 
   const server = new McpServer(
-    { name: 'body-log', version: '1.3.0' },
+    { name: 'body-log', version: '1.4.0' },
     { instructions: INSTRUCTIONS },
   );
 

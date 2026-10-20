@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Food } from '../types';
-import { MEXT_SOURCE, displayName, type MextFood } from '../utils/mextFoods';
+import { MEXT_SOURCE, displayName, pickedName, type MextFood } from '../utils/mextFoods';
 import { TutorialHint } from '../tutorial/TutorialHint';
 import { MextFoodSearch } from './MextFoodSearch';
 import styles from './FoodFormDialog.module.css';
@@ -93,7 +93,7 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
   // 成分表の食品を選んだら、100gあたりの値を入力欄に入れて「自分で入力」に切り替える
   function handleSelect(food: MextFood) {
     setValues({
-      name: displayName(food.name),
+      name: pickedName(food),
       unit: 'g',
       baseAmount: '100',
       kcal: String(food.kcal),
@@ -114,7 +114,12 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
       return;
     }
     // 出典：成分表から選んだときは成分表。編集のときは、もとの出典を残す
-    const source = picked ? MEXT_SOURCE : initialFood?.source;
+    // 2つを混ぜて計算した値（麦ごはんなど）は、計算のしかたも出典に残す
+    const source = picked
+      ? picked.basis
+        ? `${MEXT_SOURCE}をもとに計算（${picked.basis}）`
+        : MEXT_SOURCE
+      : initialFood?.source;
     onSave({
       // Firestore は undefined の項目を保存できないので、出典があるときだけ入れる
       ...(source ? { source } : {}),
@@ -169,7 +174,10 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
           <>
             {picked && (
               <p className={styles.picked}>
-                成分表「{displayName(picked.name)}」の値を入れました。食品名は呼びやすい名前に変えられます
+                {picked.basis
+                  ? `「${picked.label}」の値を入れました（${picked.basis}）。`
+                  : `成分表「${displayName(picked.name)}」の値を入れました。`}
+                食品名は呼びやすい名前に変えられます
               </p>
             )}
 
