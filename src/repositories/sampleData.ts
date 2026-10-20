@@ -1,11 +1,13 @@
-import type { BodyGoal, BodyRecord, Food, Goals, MealEntry, MealType } from '../types';
+import type { BodyGoal, BodyRecord, Food, Goals, MealEntry, MealType, Recipe } from '../types';
 import { defaultGoals } from '../constants/goals';
 import { addDays, today } from '../utils/date';
 import { calcNutrients } from '../utils/nutrition';
+import { buildRecipe } from '../utils/recipe';
 
 // localStorage にまとめて保存するデータ全体の形
 export type Store = {
   foods: Food[];
+  recipes: Recipe[];
   entries: MealEntry[];
   goals: Goals;
   bodyRecords: BodyRecord[];
@@ -84,6 +86,30 @@ const PLANS: DayPlan[] = [
   ],
 ];
 
+// 見本のレシピ：具だくさん豚汁 4食分（材料の値は日本食品標準成分表の100gあたり）
+function grams(name: string, amount: number, code: string, values: [number, number, number, number]) {
+  const [kcal, protein, fat, carbs] = values;
+  return { name, unit: 'g' as const, baseAmount: 100, amount, ref: `mext:${code}`, kcal, protein, fat, carbs };
+}
+
+function sampleRecipes(): Recipe[] {
+  return [
+    buildRecipe({
+      id: 'sample-tonjiru',
+      name: '具だくさん豚汁',
+      servings: 4,
+      ingredients: [
+        grams('豚バラ肉', 200, '11129', [366, 14.4, 35.4, 0.1]),
+        grams('大根', 200, '06134', [15, 0.4, 0.1, 4.1]),
+        grams('にんじん', 80, '06214', [32, 0.7, 0.2, 8.8]),
+        grams('ごぼう', 60, '06084', [58, 1.8, 0.1, 15.4]),
+        grams('木綿豆腐', 150, '04032', [73, 7, 4.9, 1.5]),
+        grams('みそ', 60, '17045', [182, 12.5, 6, 21.9]),
+      ],
+    }),
+  ];
+}
+
 const DAYS = 14; // 今日を含めた日数
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
@@ -130,6 +156,7 @@ export function createSampleData(): Store {
 
   return {
     foods: structuredClone(sampleFoods),
+    recipes: sampleRecipes(),
     entries,
     goals: structuredClone(defaultGoals),
     bodyRecords,

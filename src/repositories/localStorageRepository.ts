@@ -1,4 +1,4 @@
-import type { BodyGoal, BodyRecord, Food, Goals, MealEntry } from '../types';
+import type { BodyGoal, BodyRecord, Food, Goals, MealEntry, Recipe } from '../types';
 import type { DataRepository } from './DataRepository';
 import { createSampleData, defaultGoals, type Store } from './sampleData';
 
@@ -11,6 +11,8 @@ function load(): Store {
     const store = JSON.parse(raw) as Store;
     // 古いデータにない目標（炭水化物など）は初期値で補う
     store.goals = { ...defaultGoals, ...store.goals };
+    // レシピの機能を追加する前のデータには recipes がない
+    store.recipes ??= [];
     return store;
   }
   const initial = createSampleData();
@@ -42,6 +44,21 @@ export class LocalStorageRepository implements DataRepository {
   async deleteFood(id: string): Promise<void> {
     const s = load();
     s.foods = s.foods.filter((f) => f.id !== id);
+    save(s);
+  }
+
+  // ---- レシピ ----
+  async getRecipes(): Promise<Recipe[]> {
+    return load().recipes;
+  }
+  async saveRecipe(recipe: Recipe): Promise<void> {
+    const s = load();
+    s.recipes = upsert(s.recipes, recipe);
+    save(s);
+  }
+  async deleteRecipe(id: string): Promise<void> {
+    const s = load();
+    s.recipes = s.recipes.filter((r) => r.id !== id);
     save(s);
   }
 

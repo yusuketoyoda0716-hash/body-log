@@ -4,7 +4,10 @@ import type { Food, MealEntry, Nutrients, Range } from '../types/index.js'; // �
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 // 食品と量から栄養素を計算する（例：100gあたりの値 × 150g / 100g）
-export function calcNutrients(food: Food, amount: number): Nutrients {
+export function calcNutrients(
+  food: Nutrients & Pick<Food, 'baseAmount'>,
+  amount: number,
+): Nutrients {
   const ratio = amount / food.baseAmount;
   return {
     kcal: round1(food.kcal * ratio),

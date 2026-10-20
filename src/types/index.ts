@@ -13,6 +13,24 @@ export type Food = Nutrients & {
   baseAmount: number;
 };
 
+// レシピの材料：材料の食品の「基準量あたりの値」と、使った量を持つ
+//   例：豚バラ肉（100gあたり 366kcal）を 300g
+export type RecipeIngredient = Nutrients & {
+  name: string;
+  unit: Food['unit'];
+  baseAmount: number; // kcal などは、この量あたりの値
+  amount: number; // 使った量
+  ref: string | null; // 元の食品（登録食品の id や 'mext:食品番号'）。手入力なら null
+};
+
+// レシピ（料理）：材料の合計を servings（何食分）で割った「1食あたり」の値を持つ
+export type Recipe = Nutrients & {
+  id: string;
+  name: string;
+  servings: number;
+  ingredients: RecipeIngredient[];
+};
+
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 // 食事記録：記録時点の食品名・単位・栄養素をコピーして持つ

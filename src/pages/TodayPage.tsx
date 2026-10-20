@@ -4,7 +4,7 @@ import { MealEntryDialog } from '../components/MealEntryDialog';
 import { SummaryCard } from '../components/SummaryCard';
 import { MEAL_TYPES } from '../constants/meals';
 import { useRepository } from '../repositories/repositoryContext';
-import type { Food, Goals, MealEntry, MealType } from '../types';
+import type { Food, Goals, MealEntry, MealType, Recipe } from '../types';
 import { addDays, formatDateLabel, isDateString, today } from '../utils/date';
 import { sumNutrients } from '../utils/nutrition';
 import styles from './TodayPage.module.css';
@@ -22,6 +22,7 @@ export function TodayPage() {
   // 読み込んだ記録を「どの日付の分か」とセットで持つ
   const [loaded, setLoaded] = useState<{ date: string; entries: MealEntry[] } | null>(null);
   const [foods, setFoods] = useState<Food[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [addingMeal, setAddingMeal] = useState<MealType | null>(null);
   const [goals, setGoals] = useState<Goals | null>(null);
 
@@ -36,9 +37,10 @@ export function TodayPage() {
     };
   }, [repository, date]);
 
-  // 登録食品を読み込む
+  // 登録食品とレシピを読み込む
   useEffect(() => {
     repository.getFoods().then(setFoods);
+    repository.getRecipes().then(setRecipes);
   }, [repository]);
 
   // 目標を読み込む
@@ -181,6 +183,7 @@ export function TodayPage() {
           mealType={addingMeal}
           mealLabel={addingLabel}
           foods={foods}
+          recipes={recipes}
           onSave={handleAddEntry}
           onClose={() => setAddingMeal(null)}
         />

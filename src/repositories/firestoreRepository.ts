@@ -11,7 +11,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { app } from '../lib/firebase';
-import type { BodyGoal, BodyRecord, Food, Goals, MealEntry } from '../types';
+import type { BodyGoal, BodyRecord, Food, Goals, MealEntry, Recipe } from '../types';
 import type { DataRepository } from './DataRepository';
 import { defaultBodyGoal, defaultGoals } from './sampleData';
 
@@ -26,7 +26,7 @@ export class FirestoreRepository implements DataRepository {
   }
 
   // users/{uid}/foods などのコレクション
-  private col(name: 'foods' | 'entries' | 'bodyRecords') {
+  private col(name: 'foods' | 'recipes' | 'entries' | 'bodyRecords') {
     return collection(db, 'users', this.uid, name);
   }
 
@@ -48,6 +48,20 @@ export class FirestoreRepository implements DataRepository {
   }
   async deleteFood(id: string): Promise<void> {
     await deleteDoc(doc(this.col('foods'), id));
+  }
+
+  // ---- レシピ ----
+  async getRecipes(): Promise<Recipe[]> {
+    const snap = await getDocs(this.col('recipes'));
+    return snap.docs
+      .map((d) => d.data() as Recipe)
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  }
+  async saveRecipe(recipe: Recipe): Promise<void> {
+    await setDoc(doc(this.col('recipes'), recipe.id), recipe);
+  }
+  async deleteRecipe(id: string): Promise<void> {
+    await deleteDoc(doc(this.col('recipes'), id));
   }
 
   // ---- 食事記録 ----

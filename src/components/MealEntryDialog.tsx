@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Food, MealEntry, MealType } from '../types';
+import type { Food, MealEntry, MealType, Nutrients, Recipe } from '../types';
 import { calcNutrients } from '../utils/nutrition';
 import formStyles from './FoodFormDialog.module.css';
 import styles from './MealEntryDialog.module.css';
@@ -9,13 +9,48 @@ type Props = {
   mealType: MealType;
   mealLabel: string;
   foods: Food[];
+  recipes: Recipe[];
   onSave: (entry: MealEntry) => void;
   onClose: () => void;
 };
 
-export function MealEntryDialog({ date, mealType, mealLabel, foods, onSave, onClose }: Props) {
+// 選べるもの（食品とレシピ）を同じ形にそろえる。レシピは「1食あたり」の値を持つ
+type Choice = Nutrients & {
+  key: string; // select の value（'food:…' / 'recipe:…'）
+  foodId: string; // 記録に残す元のID。レシピは 'recipe:…'
+  name: string;
+  unit: Food['unit'];
+  baseAmount: number;
+};
+
+function toChoices(foods: Food[], recipes: Recipe[]) {
+  return {
+    foods: foods.map<Choice>((f) => ({ ...f, key: `food:${f.id}`, foodId: f.id })),
+    recipes: recipes.map<Choice>((r) => ({
+      key: `recipe:${r.id}`,
+      foodId: `recipe:${r.id}`,
+      name: r.name,
+      unit: '食',
+      baseAmount: 1,
+      kcal: r.kcal,
+      protein: r.protein,
+      fat: r.fat,
+      carbs: r.carbs,
+    })),
+  };
+}
+
+export function MealEntryDialog({
+  date,
+  mealType,
+  mealLabel,
+  foods,
+  recipes,
+  onSave,
+  onClose,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [foodId, setFoodId] = useState('');
+  const [choiceKey, setChoiceKey] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -24,15 +59,18 @@ export function MealEntryDialog({ date, mealType, mealLabel, foods, onSave, onCl
     if (dialog && !dialog.open) dialog.showModal();
   }, []);
 
-  // 選ばれている食品と、計算結果（食品と正しい量がそろったときだけ）
-  const food = foods.find((f) => f.id === foodId);
+  const choices = toChoices(foods, recipes);
+  const allChoices = [...choices.foods, ...choices.recipes];
+
+  // 選ばれている食品（またはレシピ）と、計算結果（食品と正しい量がそろったときだけ）
+  const food = allChoices.find((c) => c.key === choiceKey);
   const amountNumber = Number(amount);
   const preview = food && amount !== '' && amountNumber > 0 ? calcNutrients(food, amountNumber) : null;
 
   // 食品を選んだら、量にその食品の基準量を入れておく
-  function handleFoodChange(id: string) {
-    setFoodId(id);
-    const next = foods.find((f) => f.id === id);
+  function handleFoodChange(key: string) {
+    setChoiceKey(key);
+    const next = allChoices.find((c) => c.key === key);
     setAmount(next ? String(next.baseAmount) : '');
   }
 
@@ -50,7 +88,7 @@ export function MealEntryDialog({ date, mealType, mealLabel, foods, onSave, onCl
       id: crypto.randomUUID(),
       date,
       mealType,
-      foodId: food.id,
+      foodId: food.foodId,
       foodName: food.name,
       unit: food.unit,
       amount: amountNumber,
@@ -70,20 +108,31 @@ export function MealEntryDialog({ date, mealType, mealLabel, foods, onSave, onCl
           {mealLabel}に追加
         </h2>
 
-        {foods.length === 0 ? (
+        {allChoices.length === 0 ? (
           <p className={formStyles.hint}>登録食品がありません。先に「食品」タブで登録してください。</p>
         ) : (
           <>
             <label className={formStyles.field}>
               食品
-              <select value={foodId} onChange={(e) => handleFoodChange(e.target.value)}>
+              <select value={choiceKey} onChange={(e) => handleFoodChange(e.target.value)}>
                 <option value="">選択してください</option>
-                {foods.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}（{f.baseAmount}
-                    {f.unit}あたり {f.kcal}kcal）
-                  </option>
-                ))}
+                <optgroup label="食品">
+                  {choices.foods.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.name}（{c.baseAmount}
+                      {c.unit}あたり {c.kcal}kcal）
+                    </option>
+                  ))}
+                </optgroup>
+                {choices.recipes.length > 0 && (
+                  <optgroup label="レシピ">
+                    {choices.recipes.map((c) => (
+                      <option key={c.key} value={c.key}>
+                        {c.name}（1食あたり {c.kcal}kcal）
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </label>
 

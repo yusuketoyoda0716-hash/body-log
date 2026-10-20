@@ -1,10 +1,15 @@
-import type { BodyGoal, BodyRecord, Food, Goals, MealEntry } from '../types';
+import type { BodyGoal, BodyRecord, Food, Goals, MealEntry, Recipe } from '../types';
 
 export interface DataRepository {
   // 登録食品
   getFoods(): Promise<Food[]>;
   saveFood(food: Food): Promise<void>; // 新規・更新どちらもこれ
   deleteFood(id: string): Promise<void>;
+
+  // レシピ（料理）
+  getRecipes(): Promise<Recipe[]>;
+  saveRecipe(recipe: Recipe): Promise<void>; // 新規・更新どちらもこれ
+  deleteRecipe(id: string): Promise<void>;
 
   // 食事記録
   getEntriesByDate(date: string): Promise<MealEntry[]>;
