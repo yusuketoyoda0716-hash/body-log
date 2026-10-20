@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Food } from '../types';
+import type { Food, Nutrients } from '../types';
+import { calcNutrients } from '../utils/nutrition';
 import { MEXT_SOURCE, displayName, pickedName, type MextFood } from '../utils/mextFoods';
 import { TutorialHint } from '../tutorial/TutorialHint';
 import { MextFoodSearch } from './MextFoodSearch';
@@ -47,6 +48,21 @@ function toFormValues(food: Food): FormValues {
   };
 }
 
+// 量を変えたときに計算し直すための「もとの値」（この量あたり、この値）
+type Reference = { baseAmount: number; nutrients: Nutrients };
+
+// 入力欄の栄養素がすべて数値として読めれば、その値を返す
+function readNutrients(v: FormValues): Nutrients | null {
+  const list = [v.kcal, v.protein, v.fat, v.carbs];
+  if (list.some((n) => n === '' || Number.isNaN(Number(n)) || Number(n) < 0)) return null;
+  return {
+    kcal: Number(v.kcal),
+    protein: Number(v.protein),
+    fat: Number(v.fat),
+    carbs: Number(v.carbs),
+  };
+}
+
 // 問題があればエラーメッセージ、なければ null を返す
 function validate(v: FormValues): string | null {
   if (v.name.trim() === '') return '食品名を入力してください';
@@ -79,6 +95,12 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
   const [mode, setMode] = useState<'search' | 'manual'>(initialFood ? 'manual' : 'search');
   // 成分表から選んだ食品（入力欄の上に「〇〇の値を入れました」と出すため）
   const [picked, setPicked] = useState<MextFood | null>(null);
+  // 量を変えたら、カロリーとPFCも同じ割合で計算し直す。そのもとになる値
+  //   成分表から選んだとき・登録済みの食品を編集するときだけ持つ
+  //   （新しく手入力するときは、パッケージの「1袋あたり」などをそのまま入れてもらうので計算しない）
+  const [reference, setReference] = useState<Reference | null>(() =>
+    initialFood ? { baseAmount: initialFood.baseAmount, nutrients: initialFood } : null,
+  );
 
   // 画面に出たらダイアログを開く
   useEffect(() => {
@@ -88,6 +110,39 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
 
   function update<K extends keyof FormValues>(key: K, value: FormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // 量（基準量）を変えたら、もとの値から同じ割合でカロリーとPFCを計算し直す
+  //   例：ごはん 100gあたり 156kcal → 300g にすると 468kcal
+  //   途中の値（「3」→「30」→「300」）から計算すると誤差がたまるので、いつも「もとの値」から計算する
+  function updateBaseAmount(text: string) {
+    const amount = Number(text);
+    if (!reference || text === '' || !(amount > 0)) {
+      update('baseAmount', text);
+      return;
+    }
+    const next = calcNutrients(
+      { ...reference.nutrients, baseAmount: reference.baseAmount },
+      amount,
+    );
+    setValues((prev) => ({
+      ...prev,
+      baseAmount: text,
+      kcal: String(next.kcal),
+      protein: String(next.protein),
+      fat: String(next.fat),
+      carbs: String(next.carbs),
+    }));
+  }
+
+  // カロリーやPFCを手で直したら、その値を新しい「もとの値」にする
+  function updateNutrient(key: keyof Nutrients, text: string) {
+    const next = { ...values, [key]: text };
+    setValues(next);
+    if (!reference) return;
+    const nutrients = readNutrients(next);
+    const amount = Number(next.baseAmount);
+    if (nutrients && amount > 0) setReference({ baseAmount: amount, nutrients });
   }
 
   // 成分表の食品を選んだら、100gあたりの値を入力欄に入れて「自分で入力」に切り替える
@@ -102,6 +157,7 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
       carbs: String(food.carbs),
     });
     setPicked(food);
+    setReference({ baseAmount: 100, nutrients: food });
     setError(null);
     setMode('manual');
   }
@@ -199,14 +255,18 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
                   min="0"
                   step="any"
                   value={values.baseAmount}
-                  onChange={(e) => update('baseAmount', e.target.value)}
+                  onChange={(e) => updateBaseAmount(e.target.value)}
                 />
               </label>
               <label className={styles.field}>
                 単位
                 <select
                   value={values.unit}
-                  onChange={(e) => update('unit', e.target.value as Food['unit'])}
+                  onChange={(e) => {
+                    update('unit', e.target.value as Food['unit']);
+                    // 単位が変わると「何倍」が決められないので、量からの計算はやめる
+                    setReference(null);
+                  }}
                 >
                   {UNITS.map((unit) => (
                     <option key={unit} value={unit}>
@@ -216,7 +276,11 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
                 </select>
               </label>
             </div>
-            <p className={styles.hint}>この量あたりの栄養素を入力します（例：100g あたり、1個 あたり）</p>
+            <p className={styles.hint}>
+              {reference
+                ? '量を変えると、カロリーとPFCも同じ割合で計算し直します（例：100g → 300g で3倍）'
+                : 'この量あたりの栄養素を入力します（例：100g あたり、1袋 あたり）'}
+            </p>
 
             <div className={styles.grid}>
               {nutrientFields.map((field) => (
@@ -228,7 +292,7 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
                     min="0"
                     step="any"
                     value={values[field.key]}
-                    onChange={(e) => update(field.key, e.target.value)}
+                    onChange={(e) => updateNutrient(field.key, e.target.value)}
                   />
                 </label>
               ))}

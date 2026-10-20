@@ -37,7 +37,8 @@ function toIngredients(rows: IngredientRow[]): RecipeIngredient[] {
     }));
 }
 
-const sameName = (a: string, b: string) => a.trim().normalize('NFKC') === b.trim().normalize('NFKC');
+const sameName = (a: string, b: string) =>
+  a.trim().normalize('NFKC') === b.trim().normalize('NFKC');
 
 // レシピを作る・直す。材料を選ぶ画面は、同じダイアログの中で切り替えて出す
 export function RecipeFormDialog({ initialRecipe, foods, recipes, onSave, onClose }: Props) {
@@ -153,9 +154,10 @@ export function RecipeFormDialog({ initialRecipe, foods, recipes, onSave, onClos
               <ul className={styles.list}>
                 {rows.map((row) => {
                   const amount = Number(row.amount);
-                  const kcal =
+                  // 量に合わせて、この材料のカロリーとPFCを計算し直す
+                  const values =
                     row.amount !== '' && amount > 0
-                      ? ingredientNutrients({ ...row, amount }).kcal
+                      ? ingredientNutrients({ ...row, amount })
                       : null;
                   return (
                     <li key={row.key} className={styles.row}>
@@ -172,7 +174,18 @@ export function RecipeFormDialog({ initialRecipe, foods, recipes, onSave, onClos
                         />
                         <span>{row.unit}</span>
                       </label>
-                      <span className={styles.kcal}>{kcal === null ? '-' : `${kcal}kcal`}</span>
+                      <span className={styles.kcal}>
+                        {values ? (
+                          <>
+                            {values.kcal}kcal
+                            <span className={styles.pfc}>
+                              P{values.protein} F{values.fat} C{values.carbs}
+                            </span>
+                          </>
+                        ) : (
+                          '-'
+                        )}
+                      </span>
                       <button
                         type="button"
                         className={styles.remove}

@@ -31,10 +31,10 @@
   border-radius: 8px;
 }
 
-/* 材料名 / 量 / kcal / 外すボタン */
+/* 材料名 / 量 / kcal・PFC / 外すボタン */
 .row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px 64px 32px;
+  grid-template-columns: minmax(0, 1fr) 84px 96px 28px;
   align-items: center;
   gap: 6px;
   padding: 6px 4px 6px 10px;
@@ -76,7 +76,7 @@
 }
 
 .remove {
-  width: 32px;
+  width: 28px;
   height: 32px;
   border: none;
   border-radius: 6px;
@@ -120,4 +120,11 @@
 .sub {
   font-size: 12px;
   color: var(--color-muted);
+}
+
+/* 材料ごとのPFC（量を変えるとその場で変わる） */
+.pfc {
+  display: block;
+  font-size: 10px;
+  white-space: nowrap;
 }
