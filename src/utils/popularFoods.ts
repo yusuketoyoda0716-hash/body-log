@@ -13,7 +13,7 @@ type PopularFood = {
 
 // 同じ仲間に共通の検索語
 const RICE = ['ごはん', 'ご飯', 'めし', 'ライス', '米'];
-const BARLEY = ['麦ごはん', '麦飯', '麦', '押麦'];
+const BARLEY = ['麦ごはん', '麦飯', '麦めし', 'むぎごはん', 'むぎめし', '麦', 'むぎ', '押麦'];
 const BREAD = ['パン'];
 const NOODLE = ['めん', '麺'];
 const CHICKEN = ['鶏肉', '鶏', 'とり肉', 'チキン', '肉'];
