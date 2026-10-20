@@ -123,3 +123,10 @@
   color: #ffffff;
   font-weight: 700;
 }
+
+/* 食品の値の出典（長い URL でも折り返す） */
+.source {
+  font-size: 11px;
+  color: var(--color-muted);
+  overflow-wrap: anywhere;
+}

@@ -1,5 +1,6 @@
-import type { Nutrients, Recipe, RecipeIngredient } from '../types';
-import { calcNutrients, sumNutrients } from './nutrition';
+// サーバー（api/mcp.ts）からも読み込むので、import は拡張子付きで書く
+import type { Nutrients, Recipe, RecipeIngredient } from '../types/index.js';
+import { calcNutrients, sumNutrients } from './nutrition.js';
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 

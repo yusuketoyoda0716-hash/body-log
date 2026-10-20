@@ -7,7 +7,8 @@ export type MextFood = Nutrients & {
   name: string; // 成分表の食品名（例：＜魚類＞ （かつお類） かつお 秋獲り 生）
 };
 
-export const MEXT_SOURCE = '文部科学省「日本食品標準成分表（八訂）増補2023年」';
+// 出典の書き方はサーバーと共通にしている
+export { MEXT_SOURCE } from '../constants/sources';
 
 // 約300kBあるので、検索画面を開いたときに初めて読み込む
 let cache: Promise<MextFood[]> | null = null;

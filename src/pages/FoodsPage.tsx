@@ -113,6 +113,7 @@ export function FoodsPage() {
                     {food.baseAmount}
                     {food.unit} あたり
                   </span>
+                  {food.source && <span className={styles.source}>出典：{food.source}</span>}
                 </span>
                 <span className={styles.nutrients}>
                   <span className={styles.kcal}>{food.kcal} kcal</span>

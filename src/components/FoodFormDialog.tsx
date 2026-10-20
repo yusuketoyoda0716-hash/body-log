@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Food } from '../types';
-import { displayName, type MextFood } from '../utils/mextFoods';
+import { MEXT_SOURCE, displayName, type MextFood } from '../utils/mextFoods';
 import { MextFoodSearch } from './MextFoodSearch';
 import styles from './FoodFormDialog.module.css';
 
@@ -111,7 +111,11 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete }: Props
       setError(message);
       return;
     }
+    // 出典：成分表から選んだときは成分表。編集のときは、もとの出典を残す
+    const source = picked ? MEXT_SOURCE : initialFood?.source;
     onSave({
+      // Firestore は undefined の項目を保存できないので、出典があるときだけ入れる
+      ...(source ? { source } : {}),
       id: initialFood?.id ?? crypto.randomUUID(),
       name: values.name.trim(),
       unit: values.unit,
