@@ -130,3 +130,22 @@
   color: var(--color-muted);
   overflow-wrap: anywhere;
 }
+
+/* 今日の食事に追加したあとのお知らせ */
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-active);
+  font-size: 13px;
+}
+
+.noticeLink {
+  flex-shrink: 0;
+  color: var(--color-primary);
+  font-weight: 700;
+}

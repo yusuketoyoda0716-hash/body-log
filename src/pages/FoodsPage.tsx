@@ -1,11 +1,33 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { FoodFormDialog } from '../components/FoodFormDialog';
+import { QuickAddDialog, type QuickAddTarget } from '../components/QuickAddDialog';
 import { RecipeDetailDialog } from '../components/RecipeDetailDialog';
+import { mealLabel } from '../constants/meals';
 import { useRepository } from '../repositories/repositoryContext';
-import type { Food, Recipe } from '../types';
+import type { Food, MealEntry, Recipe } from '../types';
+import { formatDateLabel } from '../utils/date';
 import styles from './FoodsPage.module.css';
 
 type Tab = 'foods' | 'recipes';
+
+// 食品はそのまま、レシピは「1食 = 1食分の値」として記録する形にそろえる
+function foodTarget(food: Food): QuickAddTarget {
+  return { ...food, foodId: food.id };
+}
+
+function recipeTarget(recipe: Recipe): QuickAddTarget {
+  return {
+    foodId: `recipe:${recipe.id}`,
+    name: recipe.name,
+    unit: '食',
+    baseAmount: 1,
+    kcal: recipe.kcal,
+    protein: recipe.protein,
+    fat: recipe.fat,
+    carbs: recipe.carbs,
+  };
+}
 
 export function FoodsPage() {
   const repository = useRepository();
@@ -17,6 +39,10 @@ export function FoodsPage() {
   const [editing, setEditing] = useState<Food | 'new' | null>(null);
   // 中身を表示しているレシピ
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
+  // 今日の食事に追加しようとしている食品・レシピ
+  const [adding, setAdding] = useState<QuickAddTarget | null>(null);
+  // 追加したあとに出すお知らせ
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     repository.getFoods().then(setFoods);
@@ -42,6 +68,22 @@ export function FoodsPage() {
     await repository.deleteRecipe(recipe.id);
     setRecipes(await repository.getRecipes());
     setViewingRecipe(null);
+  }
+
+  // 詳細の画面を閉じてから、追加の画面を開く
+  function openAdd(target: QuickAddTarget) {
+    setEditing(null);
+    setViewingRecipe(null);
+    setNotice(null);
+    setAdding(target);
+  }
+
+  async function handleAddEntry(entry: MealEntry) {
+    await repository.saveEntry(entry);
+    setAdding(null);
+    setNotice(
+      `「${entry.foodName}」を${formatDateLabel(entry.date)}の${mealLabel(entry.mealType)}に記録しました`,
+    );
   }
 
   const keyword = query.trim();
@@ -80,6 +122,15 @@ export function FoodsPage() {
           レシピ
         </button>
       </div>
+
+      {notice && (
+        <p className={styles.notice} role="status">
+          <span>{notice}</span>
+          <Link to="/" className={styles.noticeLink}>
+            今日を見る
+          </Link>
+        </p>
+      )}
 
       <label className={styles.search}>
         検索
@@ -162,6 +213,7 @@ export function FoodsPage() {
           onSave={handleSave}
           onClose={() => setEditing(null)}
           onDelete={() => handleDelete(editing)}
+          onAddToday={() => openAdd(foodTarget(editing))}
         />
       )}
       {viewingRecipe && (
@@ -169,7 +221,11 @@ export function FoodsPage() {
           recipe={viewingRecipe}
           onClose={() => setViewingRecipe(null)}
           onDelete={() => handleDeleteRecipe(viewingRecipe)}
+          onAddToday={() => openAdd(recipeTarget(viewingRecipe))}
         />
+      )}
+      {adding && (
+        <QuickAddDialog target={adding} onSave={handleAddEntry} onClose={() => setAdding(null)} />
       )}
     </>
   );

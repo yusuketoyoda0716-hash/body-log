@@ -65,9 +65,10 @@ type Props = {
   onSave: (food: Food) => void;
   onClose: () => void;
   onDelete?: () => void; // 編集のときだけ渡す
+  onAddToday?: () => void; // 編集のときだけ渡す（今日の食事に追加）
 };
 
-export function FoodFormDialog({ initialFood, onSave, onClose, onDelete }: Props) {
+export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddToday }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [values, setValues] = useState<FormValues>(() =>
     initialFood ? toFormValues(initialFood) : emptyValues,
@@ -229,6 +230,13 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete }: Props
           <p className={styles.error} role="alert">
             {error}
           </p>
+        )}
+
+        {/* 保存済みの値で記録する（このフォームで書きかえた途中の値は使わない） */}
+        {onAddToday && (
+          <button type="button" className={styles.addToday} onClick={onAddToday}>
+            ＋ 今日の食事に追加
+          </button>
         )}
 
         <div className={styles.actions}>

@@ -135,3 +135,14 @@
   opacity: 0.4;
   cursor: default;
 }
+
+/* 登録食品・レシピから今日の食事に追加するボタン */
+.addToday {
+  height: 44px;
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-primary);
+  font-weight: 700;
+  cursor: pointer;
+}
