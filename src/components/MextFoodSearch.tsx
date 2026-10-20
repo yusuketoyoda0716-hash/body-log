@@ -6,27 +6,36 @@ import {
   searchMextFoods,
   type MextFood,
 } from '../utils/mextFoods';
-import { searchPopularFoods } from '../utils/popularFoods';
+import type { searchPopularFoods } from '../utils/popularFoods';
 import styles from './MextFoodSearch.module.css';
+
+// よく食べるものの一覧（約400種類・約30kB）も、成分表と同じく検索画面を開いたときに初めて読み込む
+type SearchPopular = typeof searchPopularFoods;
 
 type Props = {
   onSelect: (food: MextFood) => void;
 };
 
 export function MextFoodSearch({ onSelect }: Props) {
-  const [foods, setFoods] = useState<MextFood[] | null>(null);
+  // 成分表と、よく食べるものの検索関数。両方そろってから検索できるようにする
+  const [loaded, setLoaded] = useState<{ foods: MextFood[]; searchPopular: SearchPopular } | null>(
+    null,
+  );
   const [loadError, setLoadError] = useState(false);
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    loadMextFoods()
-      .then(setFoods)
+    Promise.all([loadMextFoods(), import('../utils/popularFoods')])
+      .then(([foods, popularModule]) =>
+        setLoaded({ foods, searchPopular: popularModule.searchPopularFoods }),
+      )
       .catch(() => setLoadError(true));
   }, []);
 
+  const foods = loaded?.foods ?? null;
   const keyword = query.trim();
   // よく食べるもの（分かりやすい名前）を上に出し、同じ食品は下の検索結果から外す
-  const popular = foods && keyword ? searchPopularFoods(foods, keyword) : [];
+  const popular = loaded && keyword ? loaded.searchPopular(loaded.foods, keyword) : [];
   const popularCodes = new Set(popular.map((food) => food.code));
   const results = foods
     ? searchMextFoods(foods, keyword).filter((food) => !popularCodes.has(food.code))
