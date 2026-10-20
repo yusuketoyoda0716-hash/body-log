@@ -1,0 +1,123 @@
+.ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.empty {
+  margin: 0;
+  padding: 12px;
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+/* 材料が多くてもダイアログが伸びすぎないように、一覧だけスクロールさせる */
+.list {
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+/* 材料名 / 量 / kcal / 外すボタン */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 64px 32px;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px 6px 10px;
+  font-size: 13px;
+}
+
+.row + .row {
+  border-top: 1px solid var(--color-border);
+}
+
+.name {
+  overflow-wrap: anywhere;
+}
+
+.amount {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.amount input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 6px;
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  font-size: 16px; /* 16px 未満だと iPhone で入力時に拡大される */
+  text-align: right;
+  color: var(--color-text);
+}
+
+.kcal {
+  font-size: 12px;
+  text-align: right;
+  color: var(--color-muted);
+}
+
+.remove {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 18px;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.remove:hover,
+.remove:focus-visible {
+  background: var(--color-surface);
+  color: #b42318;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.totals > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.label {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--color-muted);
+}

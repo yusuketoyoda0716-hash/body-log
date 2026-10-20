@@ -9,11 +9,11 @@ type Props = {
   onClose: () => void;
   onDelete: () => void;
   onAddToday: () => void;
+  onEdit: () => void;
 };
 
 // レシピの中身（材料・鍋全体・1食あたり）を表示する
-// アプリでの編集は次の段階で追加する
-export function RecipeDetailDialog({ recipe, onClose, onDelete, onAddToday }: Props) {
+export function RecipeDetailDialog({ recipe, onClose, onDelete, onAddToday, onEdit }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export function RecipeDetailDialog({ recipe, onClose, onDelete, onAddToday }: Pr
         </table>
 
         <p className={formStyles.hint}>
-          材料の量や何食分かを変えたいときは、Claude連携で「今日の{recipe.name}は〇〇を△△gで作った」のように伝えてください。
+          材料の量や何食分かを変えたいときは「編集」から直せます。Claude連携で「今日の{recipe.name}は〇〇を△△gで作った」と伝えても直せます。
         </p>
 
         <button type="button" className={formStyles.addToday} onClick={onAddToday}>
@@ -87,6 +87,9 @@ export function RecipeDetailDialog({ recipe, onClose, onDelete, onAddToday }: Pr
           </button>
           <button type="button" className={formStyles.cancel} onClick={onClose}>
             閉じる
+          </button>
+          <button type="button" className={formStyles.save} onClick={onEdit}>
+            編集
           </button>
         </div>
       </div>

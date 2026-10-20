@@ -1,0 +1,4 @@
+/* 「登録食品」「成分表」「手入力」の3つに分ける */
+.tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}

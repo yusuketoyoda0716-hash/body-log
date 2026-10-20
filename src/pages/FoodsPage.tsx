@@ -3,8 +3,9 @@ import { Link } from 'react-router';
 import { FoodFormDialog } from '../components/FoodFormDialog';
 import { QuickAddDialog, type QuickAddTarget } from '../components/QuickAddDialog';
 import { RecipeDetailDialog } from '../components/RecipeDetailDialog';
-import { mealLabel } from '../constants/meals';
+import { RecipeFormDialog } from '../components/RecipeFormDialog';
 import { useRepository } from '../repositories/repositoryContext';
+import { mealLabel } from '../constants/meals';
 import type { Food, MealEntry, Recipe } from '../types';
 import { formatDateLabel } from '../utils/date';
 import styles from './FoodsPage.module.css';
@@ -39,6 +40,8 @@ export function FoodsPage() {
   const [editing, setEditing] = useState<Food | 'new' | null>(null);
   // 中身を表示しているレシピ
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
+  // null = 閉じている / 'new' = 新規作成 / Recipe = そのレシピを編集中
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | 'new' | null>(null);
   // 今日の食事に追加しようとしている食品・レシピ
   const [adding, setAdding] = useState<QuickAddTarget | null>(null);
   // 追加したあとに出すお知らせ
@@ -61,6 +64,18 @@ export function FoodsPage() {
     await repository.deleteFood(food.id);
     setFoods(await repository.getFoods());
     setEditing(null);
+  }
+
+  async function handleSaveRecipe(recipe: Recipe) {
+    await repository.saveRecipe(recipe);
+    setRecipes(await repository.getRecipes());
+    setEditingRecipe(null);
+  }
+
+  // 詳細の画面を閉じてから、編集の画面を開く
+  function openEditRecipe(recipe: Recipe) {
+    setViewingRecipe(null);
+    setEditingRecipe(recipe);
   }
 
   async function handleDeleteRecipe(recipe: Recipe) {
@@ -96,12 +111,14 @@ export function FoodsPage() {
     <>
       <div className={styles.header}>
         <h1>登録食品</h1>
-        {/* レシピをアプリで作る画面は次の段階で追加する。今は Claude から登録できる */}
-        {tab === 'foods' && (
-          <button type="button" className={styles.addButton} onClick={() => setEditing('new')}>
-            ＋ 追加
-          </button>
-        )}
+        {/* 開いているタブに合わせて、食品かレシピを追加する */}
+        <button
+          type="button"
+          className={styles.addButton}
+          onClick={() => (tab === 'foods' ? setEditing('new') : setEditingRecipe('new'))}
+        >
+          ＋ 追加
+        </button>
       </div>
 
       <div className={styles.tabs} role="group" aria-label="表示の切り替え">
@@ -150,7 +167,7 @@ export function FoodsPage() {
             ? `「${keyword}」に一致する${tab === 'foods' ? '食品' : 'レシピ'}はありません`
             : tab === 'foods'
               ? 'まだ食品が登録されていません'
-              : 'まだレシピがありません。Claude連携で「カレーを4食分作った。材料は…」と送ると登録できます'}
+              : 'まだレシピがありません。「＋ 追加」か、Claude連携で「カレーを4食分作った。材料は…」と送ると登録できます'}
         </p>
       ) : tab === 'foods' ? (
         <ul className={styles.list}>
@@ -222,6 +239,16 @@ export function FoodsPage() {
           onClose={() => setViewingRecipe(null)}
           onDelete={() => handleDeleteRecipe(viewingRecipe)}
           onAddToday={() => openAdd(recipeTarget(viewingRecipe))}
+          onEdit={() => openEditRecipe(viewingRecipe)}
+        />
+      )}
+      {editingRecipe !== null && (
+        <RecipeFormDialog
+          initialRecipe={editingRecipe === 'new' ? undefined : editingRecipe}
+          foods={foods ?? []}
+          recipes={recipes ?? []}
+          onSave={handleSaveRecipe}
+          onClose={() => setEditingRecipe(null)}
         />
       )}
       {adding && (
