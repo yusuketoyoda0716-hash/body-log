@@ -3,6 +3,8 @@ import type { DataRepository } from './DataRepository';
 import { createSampleData, defaultGoals, type Store } from './sampleData';
 
 const STORAGE_KEY = 'body-log:v1';
+// チュートリアルを見終わったか。「サンプルデータに戻す」で消えないように、データとは別に保存する
+const TUTORIAL_KEY = 'body-log:tutorialDone';
 
 // 保存されているデータを読み込む。なければ見本データで初期化
 function load(): Store {
@@ -114,6 +116,14 @@ export class LocalStorageRepository implements DataRepository {
   }
 
   // ---- リセット ----
+  // ---- チュートリアル ----
+  async isTutorialDone(): Promise<boolean> {
+    return localStorage.getItem(TUTORIAL_KEY) !== null;
+  }
+  async markTutorialDone(): Promise<void> {
+    localStorage.setItem(TUTORIAL_KEY, new Date().toISOString());
+  }
+
   async reset(): Promise<void> {
     // 消しておけば、次に読み込んだときにサンプルデータで初期化される
     localStorage.removeItem(STORAGE_KEY);

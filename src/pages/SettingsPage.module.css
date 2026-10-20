@@ -147,3 +147,29 @@
   font-weight: 700;
   color: var(--color-muted);
 }
+
+/* 使い方：章ごとのボタン */
+.chapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chapter {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-bg);
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.chapter:hover,
+.chapter:focus-visible {
+  background: var(--color-active);
+}

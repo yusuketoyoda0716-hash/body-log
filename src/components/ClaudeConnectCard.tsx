@@ -3,6 +3,7 @@ import { useAuth } from '../auth/authContext';
 import type { McpConnection } from '../lib/mcpToken';
 import { copyText } from '../utils/clipboard';
 import { ClaudePromptGuide } from './ClaudePromptGuide';
+import { ConnectorGuide } from './ConnectorGuide';
 import styles from './ClaudeConnectCard.module.css';
 
 // Firestore を使うので、ログインしているときに初めて読み込む
@@ -112,6 +113,7 @@ export function ClaudeConnectCard() {
       <p className={styles.text}>
         Claudeのチャットで食べたものを伝えると、成分表で計算してこのアプリに記録されます。
       </p>
+      <ConnectorGuide />
 
       {!uid ? (
         <p className={styles.text}>Googleでログインすると使えます。</p>
@@ -151,7 +153,7 @@ export function ClaudeConnectCard() {
                 </p>
               )}
               <p className={styles.note}>
-                Claudeの設定にある「コネクタ」で、カスタムコネクタのURLとして貼り付けてください。
+                Claudeの「コネクタ」で、カスタムコネクタのURLとして貼り付けてください（手順は上の「コネクタとは？つなぎ方を見る」）。
                 URLに合言葉が含まれるので、他の人には見せないでください。
               </p>
             </div>

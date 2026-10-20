@@ -4,6 +4,7 @@ import { MealEntryDialog } from '../components/MealEntryDialog';
 import { SummaryCard } from '../components/SummaryCard';
 import { MEAL_TYPES } from '../constants/meals';
 import { useRepository } from '../repositories/repositoryContext';
+import { useTutorial } from '../tutorial/tutorialContext';
 import type { Food, Goals, MealEntry, MealType, Recipe } from '../types';
 import { addDays, formatDateLabel, isDateString, today } from '../utils/date';
 import { sumNutrients } from '../utils/nutrition';
@@ -11,6 +12,7 @@ import styles from './TodayPage.module.css';
 
 export function TodayPage() {
   const repository = useRepository();
+  const tutorial = useTutorial();
 
   // 表示中の日付は URL（?date=2026-10-07）で持つ。なければ今日
   const [searchParams, setSearchParams] = useSearchParams();
@@ -50,6 +52,9 @@ export function TodayPage() {
 
   // 表示中の日付の分が読み込めていなければ「読み込み中」
   const entries = loaded?.date === date ? loaded.entries : null;
+  // チュートリアルの「記録を直す」で光らせる記録（チュートリアルで追加したもの。なければ最初の記録）
+  const tourEntryId =
+    entries?.find((entry) => entry.id === tutorial.lastEntryId)?.id ?? entries?.[0]?.id ?? null;
 
   function changeDate(next: string) {
     setSearchParams(next === todayString ? {} : { date: next });
@@ -61,6 +66,18 @@ export function TodayPage() {
     const nextEntries = await repository.getEntriesByDate(entry.date);
     setLoaded({ date: entry.date, entries: nextEntries });
     setAddingMeal(null);
+    tutorial.notify('entry-added', entry.id);
+  }
+
+  function openAddDialog(type: MealType) {
+    setAddingMeal(type);
+    tutorial.notify('entry-dialog-opened');
+  }
+
+  // キャンセルなどで閉じたとき
+  function closeAddDialog() {
+    setAddingMeal(null);
+    tutorial.notify('dialog-closed');
   }
 
   // 削除（確認してから）→ その日の記録を読み直す
@@ -70,13 +87,14 @@ export function TodayPage() {
     await repository.deleteEntry(entry.id);
     const nextEntries = await repository.getEntriesByDate(entry.date);
     setLoaded({ date: entry.date, entries: nextEntries });
+    tutorial.notify('entry-deleted');
   }
 
   const addingLabel = MEAL_TYPES.find((m) => m.type === addingMeal)?.label ?? '';
 
   return (
     <>
-      <div className={styles.dateNav}>
+      <div className={styles.dateNav} data-tour="date-nav">
         <button
           type="button"
           className={styles.navButton}
@@ -108,7 +126,11 @@ export function TodayPage() {
         </button>
       </div>
 
-      {entries && goals && <SummaryCard totals={sumNutrients(entries)} goals={goals} />}
+      {entries && goals && (
+        <div data-tour="summary">
+          <SummaryCard totals={sumNutrients(entries)} goals={goals} />
+        </div>
+      )}
 
       {entries === null ? (
         <p className={styles.empty}>読み込み中…</p>
@@ -128,7 +150,8 @@ export function TodayPage() {
                       type="button"
                       className={styles.addEntryButton}
                       aria-label={`${label}に追加`}
-                      onClick={() => setAddingMeal(type)}
+                      data-tour={`add-${type}`}
+                      onClick={() => openAddDialog(type)}
                     >
                       ＋
                     </button>
@@ -151,6 +174,7 @@ export function TodayPage() {
                             type="button"
                             className={styles.deleteButton}
                             aria-label={`${entry.foodName}を削除`}
+                            data-tour={entry.id === tourEntryId ? 'entry-delete' : undefined}
                             onClick={() => handleDeleteEntry(entry)}
                           >
                             <svg
@@ -185,7 +209,7 @@ export function TodayPage() {
           foods={foods}
           recipes={recipes}
           onSave={handleAddEntry}
-          onClose={() => setAddingMeal(null)}
+          onClose={closeAddDialog}
         />
       )}
     </>

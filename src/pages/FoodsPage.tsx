@@ -5,6 +5,7 @@ import { QuickAddDialog, type QuickAddTarget } from '../components/QuickAddDialo
 import { RecipeDetailDialog } from '../components/RecipeDetailDialog';
 import { RecipeFormDialog } from '../components/RecipeFormDialog';
 import { useRepository } from '../repositories/repositoryContext';
+import { useTutorial } from '../tutorial/tutorialContext';
 import { mealLabel } from '../constants/meals';
 import type { Food, MealEntry, Recipe } from '../types';
 import { formatDateLabel } from '../utils/date';
@@ -32,6 +33,7 @@ function recipeTarget(recipe: Recipe): QuickAddTarget {
 
 export function FoodsPage() {
   const repository = useRepository();
+  const tutorial = useTutorial();
   const [tab, setTab] = useState<Tab>('foods');
   const [foods, setFoods] = useState<Food[] | null>(null);
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
@@ -56,6 +58,13 @@ export function FoodsPage() {
     await repository.saveFood(food);
     setFoods(await repository.getFoods());
     setEditing(null);
+    tutorial.notify('food-saved');
+  }
+
+  // 食品の追加・編集の画面を、キャンセルなどで閉じたとき
+  function closeFoodForm() {
+    setEditing(null);
+    tutorial.notify('dialog-closed');
   }
 
   // 削除（確認してから）
@@ -115,13 +124,21 @@ export function FoodsPage() {
         <button
           type="button"
           className={styles.addButton}
-          onClick={() => (tab === 'foods' ? setEditing('new') : setEditingRecipe('new'))}
+          data-tour="foods-add"
+          onClick={() => {
+            if (tab === 'recipes') {
+              setEditingRecipe('new');
+              return;
+            }
+            setEditing('new');
+            tutorial.notify('food-dialog-opened');
+          }}
         >
           ＋ 追加
         </button>
       </div>
 
-      <div className={styles.tabs} role="group" aria-label="表示の切り替え">
+      <div className={styles.tabs} role="group" aria-label="表示の切り替え" data-tour="foods-tabs">
         <button
           type="button"
           className={styles.tab}
@@ -222,7 +239,7 @@ export function FoodsPage() {
 
       {/* 新規と編集で同じフォームを使い回す */}
       {editing === 'new' && (
-        <FoodFormDialog onSave={handleSave} onClose={() => setEditing(null)} />
+        <FoodFormDialog onSave={handleSave} onClose={closeFoodForm} />
       )}
       {editing !== null && editing !== 'new' && (
         <FoodFormDialog

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Food, MealEntry, MealType, Nutrients, Recipe } from '../types';
+import { TutorialHint } from '../tutorial/TutorialHint';
 import { calcNutrients } from '../utils/nutrition';
 import formStyles from './FoodFormDialog.module.css';
 import styles from './MealEntryDialog.module.css';
@@ -107,6 +108,7 @@ export function MealEntryDialog({
         <h2 id="meal-entry-title" className={formStyles.title}>
           {mealLabel}に追加
         </h2>
+        <TutorialHint dialog="entry" />
 
         {allChoices.length === 0 ? (
           <p className={formStyles.hint}>登録食品がありません。先に「食品」タブで登録してください。</p>

@@ -31,7 +31,7 @@ export class FirestoreRepository implements DataRepository {
   }
 
   // users/{uid}/settings/goals などのドキュメント
-  private settingsDoc(name: 'goals' | 'bodyGoal') {
+  private settingsDoc(name: 'goals' | 'bodyGoal' | 'tutorial') {
     return doc(db, 'users', this.uid, 'settings', name);
   }
 
@@ -110,4 +110,14 @@ export class FirestoreRepository implements DataRepository {
   }
 
   // reset() はあえて実装しない（本番データを一括で消せないようにする）
+
+  // ---- チュートリアル ----
+  // users/{uid}/settings/tutorial があれば見終わっている（どの端末で開いても1回だけ出す）
+  async isTutorialDone(): Promise<boolean> {
+    const snap = await getDoc(this.settingsDoc('tutorial'));
+    return snap.exists();
+  }
+  async markTutorialDone(): Promise<void> {
+    await setDoc(this.settingsDoc('tutorial'), { doneAt: new Date().toISOString() });
+  }
 }

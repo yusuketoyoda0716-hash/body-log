@@ -17,7 +17,7 @@ export function ClaudePromptGuide() {
     <div className={styles.guide}>
       <h3 className={styles.title}>Claudeで記録を始める</h3>
       <ol className={styles.steps}>
-        <li>上の「接続用URLを発行」でURLをコピーし、Claudeの設定の「コネクタ」でカスタムコネクタとして追加する</li>
+        <li>上の「接続用URLを発行」でURLをコピーし、Claudeの「コネクタ」でカスタムコネクタとして追加する（手順は「コネクタとは？つなぎ方を見る」）</li>
         <li>Claudeで新しい「プロジェクト」を作る（名前の例：食事記録）</li>
         <li>下の「プロンプトをコピー」を押し、プロジェクトの指示（カスタム指示）に貼り付けて保存する</li>
         <li>プロジェクトの中でチャットを1つ作り、body-log のコネクタがオンになっているか確認する</li>

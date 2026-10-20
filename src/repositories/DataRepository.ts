@@ -29,6 +29,10 @@ export interface DataRepository {
   getBodyGoal(): Promise<BodyGoal>;
   saveBodyGoal(goal: BodyGoal): Promise<void>;
 
+  // チュートリアルを見終わったか（スキップも含む）
+  isTutorialDone(): Promise<boolean>;
+  markTutorialDone(): Promise<void>;
+
   // すべて消して初期状態に戻す（ゲスト用。保存先によっては存在しない）
   reset?(): Promise<void>;
 }

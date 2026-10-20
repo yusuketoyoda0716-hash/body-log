@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/authContext'; // ★
 import { ClaudeConnectCard } from '../components/ClaudeConnectCard';
 import { useRepository } from '../repositories/repositoryContext';
+import { CHAPTERS } from '../tutorial/steps';
+import { useTutorial } from '../tutorial/tutorialContext';
 import type { Goals } from '../types';
 import styles from './SettingsPage.module.css';
 
@@ -43,6 +45,7 @@ const IGNORED_AUTH_ERRORS = ['auth/popup-closed-by-user', 'auth/cancelled-popup-
 
 export function SettingsPage() {
   const repository = useRepository();
+  const tutorial = useTutorial();
   const { user, loading: authLoading, signIn, signOut } = useAuth(); // ★
   const [values, setValues] = useState<FormValues | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +166,33 @@ export function SettingsPage() {
         )}
       </section>
 
-      <ClaudeConnectCard />
+      <div data-tour="claude-card">
+        <ClaudeConnectCard />
+      </div>
+
+      {/* チュートリアルの見直し：最初からでも、知りたいところだけでも見られる */}
+      <section className={styles.card} aria-labelledby="tutorial-title-settings" data-tour="tutorial-card">
+        <h2 id="tutorial-title-settings" className={styles.cardTitle}>
+          使い方
+        </h2>
+        <p className={styles.text}>操作しながら使い方を確認できます。知りたいところだけ見ることもできます。</p>
+        <button type="button" className={styles.outline} onClick={() => tutorial.start()}>
+          チュートリアルを最初から見る
+        </button>
+        <ul className={styles.chapters}>
+          {CHAPTERS.map((chapter) => (
+            <li key={chapter.id}>
+              <button
+                type="button"
+                className={styles.chapter}
+                onClick={() => tutorial.start(chapter.id)}
+              >
+                {chapter.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className={styles.card} aria-labelledby="goals-title">
         <h2 id="goals-title" className={styles.cardTitle}>

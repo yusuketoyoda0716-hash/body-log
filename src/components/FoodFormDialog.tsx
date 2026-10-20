@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Food } from '../types';
 import { MEXT_SOURCE, displayName, type MextFood } from '../utils/mextFoods';
+import { TutorialHint } from '../tutorial/TutorialHint';
 import { MextFoodSearch } from './MextFoodSearch';
 import styles from './FoodFormDialog.module.css';
 
@@ -139,6 +140,7 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
         <h2 id="food-form-title" className={styles.title}>
           {initialFood ? '食品を編集' : '食品を追加'}
         </h2>
+        <TutorialHint dialog="food" />
 
         {!initialFood && (
           <div className={styles.tabs} role="group" aria-label="追加のしかた">

@@ -1,0 +1,143 @@
+/* チュートリアルの案内は、タブバーより上に重ねる */
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+/* 操作を待たないステップで、後ろの画面を押せないようにする */
+.blocker {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+}
+
+/* 光らせる要素：まわりを大きな影で暗くして、穴があいたように見せる
+   白い画面に溶け込まないよう、メインの緑で太く囲み、外側に脈打つ光を重ねる */
+.spotlight {
+  position: fixed;
+  border: 3px solid var(--color-primary);
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.65);
+  transition:
+    top 0.2s,
+    left 0.2s,
+    width 0.2s,
+    height 0.2s;
+}
+
+.spotlight::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 10px;
+  box-shadow: 0 0 0 0 rgb(31 107 79 / 0.7); /* --color-primary を半透明にした色 */
+  animation: pulse 1.6s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(31 107 79 / 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgb(31 107 79 / 0);
+  }
+}
+
+/* 動きを減らす設定の人には、光を止めて太い枠だけにする */
+@media (prefers-reduced-motion: reduce) {
+  .spotlight::after {
+    animation: none;
+  }
+}
+
+.dim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.65);
+}
+
+.card {
+  position: fixed;
+  border-top: 4px solid var(--color-primary);
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(100% - 32px, 400px);
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-bg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+.center {
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* タブバー（約64px）の上に出す */
+.bottom {
+  bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+.top {
+  top: calc(16px + env(safe-area-inset-top));
+}
+
+.progress {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.body {
+  margin: 0;
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.skip {
+  height: 40px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: var(--color-muted);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.next {
+  height: 40px;
+  margin-left: auto;
+  padding: 0 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.waiting {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-primary);
+}
