@@ -157,3 +157,23 @@
   background: var(--color-surface);
   color: #b42318;
 }
+
+/* 見積もりで記録したもの（外食・写真など）の目印 */
+.estimated {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--color-fat);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 18px;
+  color: #a6431a; /* --color-fat を文字として読みやすい濃さにしたもの */
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.estimatedNote {
+  margin: -8px 0 16px;
+  font-size: 12px;
+  color: var(--color-muted);
+}

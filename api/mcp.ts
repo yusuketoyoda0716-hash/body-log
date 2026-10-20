@@ -145,6 +145,12 @@ const nutrientSchema = z.number().min(0);
 const sourceSchema = z
   .string()
   .describe('値の出典（調べたサイト名や URL など）。成分表の食品では不要');
+const estimatedSchema = z
+  .boolean()
+  .optional()
+  .describe(
+    '量や値を見積もったときは true（外食で公式の値がない・写真から量を見積もった など）。アプリに「見積もり」と表示される',
+  );
 
 const entrySchema = z.discriminatedUnion('source', [
   // 登録食品を使う：量から計算する
@@ -152,6 +158,7 @@ const entrySchema = z.discriminatedUnion('source', [
     source: z.literal('registered'),
     date: dateSchema.optional(),
     mealType: mealTypeSchema.optional(),
+    estimated: estimatedSchema,
     foodId: z.string().describe('search_food の registered にある id'),
     amount: amountSchema.describe('量（その食品の単位で。例：150g なら 150、2個 なら 2）'),
   }),
@@ -160,6 +167,7 @@ const entrySchema = z.discriminatedUnion('source', [
     source: z.literal('recipe'),
     date: dateSchema.optional(),
     mealType: mealTypeSchema.optional(),
+    estimated: estimatedSchema,
     recipeId: z.string().describe('search_food の recipes にある id'),
     amount: amountSchema.describe('食数（例：1食なら 1、半分なら 0.5）'),
   }),
@@ -168,6 +176,7 @@ const entrySchema = z.discriminatedUnion('source', [
     source: z.literal('mext'),
     date: dateSchema.optional(),
     mealType: mealTypeSchema.optional(),
+    estimated: estimatedSchema,
     code: z.string().describe('search_food の mext にある code'),
     amount: amountSchema.describe('グラム数'),
     name: z
@@ -180,6 +189,7 @@ const entrySchema = z.discriminatedUnion('source', [
     source: z.literal('custom'),
     date: dateSchema.optional(),
     mealType: mealTypeSchema.optional(),
+    estimated: estimatedSchema,
     name: z.string().min(1).describe('食品名。品目がなく合計だけなら「夕食（まとめ）」など'),
     amount: amountSchema.describe('量'),
     unit: unitSchema.describe('量の単位'),
@@ -188,6 +198,12 @@ const entrySchema = z.discriminatedUnion('source', [
     fat: nutrientSchema.describe('この量での脂質(g)'),
     carbs: nutrientSchema.describe('この量での炭水化物(g)'),
     valueSource: sourceSchema.optional(),
+    valueKind: z
+      .enum(['official', 'similar', 'estimate'])
+      .optional()
+      .describe(
+        '値の確かさ。official=その店・商品の公式の値 / similar=似たメニュー（別の店など）の公式の値で代用 / estimate=中身や量から見積もった値。similar と estimate は「見積もり」として記録し、登録食品には追加しない',
+      ),
     saveAsFood: z
       .boolean()
       .optional()
@@ -230,11 +246,11 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
    - 成分表から選ぶときは、部位や調理法（生・ゆで・焼き など）まで合うものを選ぶ
    - 鶏肉は特に指定がなければ［若どり］、ごはんは「こめ ［水稲めし］ 精白米 うるち米」を選ぶ
    - 候補が複数あって決めきれないときは、ユーザーに確認する
-   - どこにもない食品（市販品・外食など）は、ウェブで栄養成分を調べて custom で記録し、valueSource に出典を入れる
+   - どこにもない市販品は、ウェブで栄養成分を調べて custom（valueKind: official）で記録し、valueSource に出典を入れる。外食は下の「外食・テイクアウトのとき」に従う
 2. add_meal_entries でまとめて記録する
    - 日付・食事区分をユーザーが言ったときだけ指定する。言わなかったときは省略する（サーバーが午前3時区切りの日付と、時間帯から食事区分を決める）
    - 成分表（mext）や custom で記録した食品は、登録食品に同じ名前がなければ自動で登録食品にも追加される（addedFoods）。合計だけの記録（「夕食（まとめ）」など）は saveAsFood を false にする
-3. 結果の days にその日の合計と目標との差が入っているので、ユーザーに伝える。記録した日付・食事区分と、登録食品に追加した食品も伝える
+3. 結果の days にその日の合計と目標との差が入っているので、ユーザーに伝える。記録した日付・食事区分と、登録食品に追加した食品も伝える。days に estimated があれば「うち見積もり ○kcal」も伝える
 
 記録を直すとき（「間違えた」「消して」「量が違う」など）：
 1. get_day_summary でその日の記録を確認する（各記録に id がある）
@@ -249,10 +265,22 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
 3. 作るたびに量が違うとき（「今日は豚肉400gで作った」など）は、get_recipe で前回の材料を読み出し、変わったところだけ直して save_recipe で登録し直す（同じ名前なら上書き。過去の記録は変わらない）
 4. 食べたときは add_meal_entries の recipe で「1食」「0.5食」のように記録する
 
+外食・テイクアウトのとき（店名とメニューが送られたら）：
+1. まず search_food で探す。「店名 メニュー名」で登録食品にあれば、それを使う（前に公式の値を登録したもの）
+2. なければ、次の順で値を決める
+   ① その店の公式サイトの栄養成分（チェーン店の多くは公開している）→ custom、valueKind: official、valueSource に出典
+   ② 公式の値がなければ、似たメニューを出しているチェーン店の公式の値で代用 → custom、valueKind: similar、valueSource に「○○（店名）の△△で代用」
+   ③ それもなければ、成分表のできあがりの料理（から揚げ・ハンバーグ・カツ丼の具 など）を search_food で探し、量を見積もって mext で記録 → estimated: true
+   ④ どれも合わなければ、中身を分けて見積もる（ごはん○g・肉○g・衣・油 など）。外食は油や砂糖が多めなので、油を材料として数える → custom、valueKind: estimate
+3. 名前は「店名 メニュー名」（例：サイゼリヤ ミラノ風ドリア）。official だけが登録食品に追加されるので、次からすぐ使える
+4. 記録したら、どの方法の値か（公式／〇〇で代用／見積もり）を伝える。大盛り・ごはん少なめ などの指定は量に反映する
+5. メニューの kcal 表示や料理の写真があると精度が上がるので、②〜④のときは「メニュー表やお皿の写真があれば送ってください」と一言そえる
+
 写真が送られたとき：
 - 料理の写真：料理ごとに食品と量（グラム）を見積もり、記録する前に一覧（食品・量・kcal・PFC）を見せてユーザーに確認する。確認がとれてから add_meal_entries で記録する
   - 料理はできるだけ ごはん・おかず・汁物 のように分け、それぞれ search_food で探す（成分表には から揚げ・ハンバーグ・カレー などできあがりの料理もある）
-  - 見積もりであることを伝える。写真から見積もった値を custom で記録するときは saveAsFood を false にする（見積もりの値を登録食品に残さない）
+  - 量を見積もった記録は estimated: true にする。custom で値を見積もったときは valueKind: estimate にする（登録食品には残らない）
+- メニュー表や店内掲示の kcal の写真：書かれている値を custom、valueKind: official で記録する
 - パッケージや栄養成分表示の写真：書かれている値を読み取り、save_food で登録してから記録する。valueSource には「パッケージの栄養成分表示」のように書く
 
 すでに計算済みの記録（過去のチャットなど）を取り込むときは、source を custom にして、書かれている値をそのまま記録する。
@@ -305,13 +333,24 @@ function createServer(uid: string) {
           protein: e.protein,
           fat: e.fat,
           carbs: e.carbs,
+          ...(e.estimated ? { estimated: true } : {}),
         })),
       };
     });
+    const estimatedItems = entries.filter((e) => e.estimated);
 
     return {
       date,
       total,
+      // 見積もりの記録がどれくらい含まれるか（合計をどこまで信じてよいかの目安）
+      ...(estimatedItems.length > 0
+        ? {
+            estimated: {
+              count: estimatedItems.length,
+              kcal: sumNutrients(estimatedItems).kcal,
+            },
+          }
+        : {}),
       goals: {
         kcal: `${goals.kcal.min}〜${goals.kcal.max}kcal（${describeRange(total.kcal, goals.kcal, 'kcal', 0)}）`,
         protein: `${goals.protein.min}〜${goals.protein.max}g（${describeRange(total.protein, goals.protein, 'g')}）`,
@@ -341,7 +380,7 @@ function createServer(uid: string) {
   }
 
   const server = new McpServer(
-    { name: 'body-log', version: '1.4.0' },
+    { name: 'body-log', version: '1.5.0' },
     { instructions: INSTRUCTIONS },
   );
 
@@ -414,10 +453,17 @@ function createServer(uid: string) {
       };
 
       for (const [i, input] of entries.entries()) {
+        // 公式の値でない（似たメニューで代用・見積もり）ときも「見積もり」として残す
+        const estimated =
+          input.estimated === true ||
+          (input.source === 'custom' &&
+            (input.valueKind === 'similar' || input.valueKind === 'estimate'));
         const base = {
           id: randomUUID(),
           date: input.date ?? today,
           mealType: input.mealType ?? mealTypeDefault,
+          // Firestore は undefined を保存できないので、見積もりのときだけ入れる
+          ...(estimated ? { estimated: true } : {}),
         };
 
         if (input.source === 'registered') {
@@ -470,7 +516,8 @@ function createServer(uid: string) {
             amount: input.amount,
             ...values,
           });
-          if (input.saveAsFood !== false) {
+          // 見積もりの値は登録食品に残さない（次から「正しい値」として使われないように）
+          if (input.saveAsFood !== false && !estimated) {
             // 記録した量をそのまま基準量にする（例：1個あたり、250gあたり）
             addFoodIfNew({
               name: input.name.trim(),
@@ -498,6 +545,7 @@ function createServer(uid: string) {
           name: d.foodName,
           amount: `${d.amount}${d.unit}`,
           ...pickNutrients(d),
+          ...(d.estimated ? { estimated: true } : {}),
         })),
         // 登録食品に自動で追加した食品
         addedFoods: newFoods.map((f) => `${f.name}（${f.baseAmount}${f.unit}あたり ${f.kcal}kcal）`),

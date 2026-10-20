@@ -43,6 +43,7 @@ export type MealEntry = Nutrients & {
   foodName: string;
   unit: Food['unit'];
   amount: number;
+  estimated?: boolean; // 量や値を見積もった記録（外食・写真から見積もったときなど）。今日の画面に「見積もり」と出す
 };
 
 export type Range = { min: number; max: number };

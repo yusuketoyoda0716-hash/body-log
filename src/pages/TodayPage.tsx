@@ -52,6 +52,8 @@ export function TodayPage() {
 
   // 表示中の日付の分が読み込めていなければ「読み込み中」
   const entries = loaded?.date === date ? loaded.entries : null;
+  // 量や値を見積もった記録（外食・写真から見積もったものなど）
+  const estimatedEntries = entries?.filter((entry) => entry.estimated) ?? [];
   // チュートリアルの「記録を直す」で光らせる記録（チュートリアルで追加したもの。なければ最初の記録）
   const tourEntryId =
     entries?.find((entry) => entry.id === tutorial.lastEntryId)?.id ?? entries?.[0]?.id ?? null;
@@ -129,6 +131,12 @@ export function TodayPage() {
       {entries && goals && (
         <div data-tour="summary">
           <SummaryCard totals={sumNutrients(entries)} goals={goals} />
+          {estimatedEntries.length > 0 && (
+            <p className={styles.estimatedNote}>
+              うち見積もり {Math.round(sumNutrients(estimatedEntries).kcal)} kcal（
+              {estimatedEntries.length}件）。外食や写真から見積もった値は、実際と差が出ることがあります
+            </p>
+          )}
         </div>
       )}
 
@@ -167,6 +175,7 @@ export function TodayPage() {
                         <span className={styles.entryName}>
                           {entry.foodName} {entry.amount}
                           {entry.unit}
+                          {entry.estimated && <span className={styles.estimated}>見積もり</span>}
                         </span>
                         <span className={styles.entryRight}>
                           <span className={styles.entryKcal}>{Math.round(entry.kcal)} kcal</span>
