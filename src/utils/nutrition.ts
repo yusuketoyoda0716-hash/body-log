@@ -1,7 +1,9 @@
 import type { Food, MealEntry, Nutrients, Range } from '../types/index.js'; // サーバー（api/mcp.ts）からも読み込むので拡張子付きで書く
 
 // 小数第1位で四捨五入
-const round1 = (n: number) => Math.round(n * 10) / 10;
+// 1.9 × 1.5 は計算機の中では 2.8499999… になり、そのまま四捨五入すると 2.8 になってしまう。
+// 10倍した値を有効数字12桁にそろえて、小数の誤差を消してから四捨五入する（テストで見つけた問題）
+export const round1 = (n: number) => Math.round(Number((n * 10).toPrecision(12))) / 10;
 
 // 食品と量から栄養素を計算する（例：100gあたりの値 × 150g / 100g）
 export function calcNutrients(

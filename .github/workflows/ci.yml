@@ -1,0 +1,30 @@
+# プッシュとプルリクエストのたびに、lint・テスト・ビルド（型チェックを含む）を自動で実行する
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 依存パッケージを入れる
+        run: npm ci
+
+      - name: lint
+        run: npm run lint
+
+      - name: 単体テスト
+        run: npm test
+
+      # tsc -b でアプリとサーバー（api/）の型チェックをしてから、ビルドする
+      - name: 型チェックとビルド
+        run: npm run build

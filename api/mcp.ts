@@ -33,7 +33,7 @@ import type {
   RecipeIngredient,
 } from '../src/types/index.js';
 import { displayName, searchFoods } from '../src/utils/foodSearch.js';
-import { describeRange, sumNutrients } from '../src/utils/nutrition.js';
+import { describeRange, round1, sumNutrients } from '../src/utils/nutrition.js';
 import { buildRecipe, recipeTotal } from '../src/utils/recipe.js';
 
 // ---- Firebase（サーバー用の鍵で接続。セキュリティルールは効かないので、uid で必ず絞り込む） ----
@@ -77,8 +77,6 @@ const MEAL_LABELS: Record<MealType, string> = {
   dinner: '夕食',
   snack: '間食',
 };
-
-const round1 = (n: number) => Math.round(n * 10) / 10;
 
 // 日本時間の今の日時。サーバーはUTCで動くので9時間ずらし、UTCとして読む
 function nowInJapan(): Date {

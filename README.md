@@ -1,5 +1,7 @@
 # body-log
 
+[![CI](https://github.com/yusuketoyoda0716-hash/body-log/actions/workflows/ci.yml/badge.svg)](https://github.com/yusuketoyoda0716-hash/body-log/actions/workflows/ci.yml)
+
 食事のカロリー・PFCと、体重・体脂肪率を記録するWebアプリです。
 減量・体づくりのために毎日続けていた食事記録を、自分で使うためにアプリにしました。
 
@@ -54,6 +56,7 @@ Googleでログインすると、Claude のチャットで食べたものを伝�
 | データ | 日本食品標準成分表（Excel から ExcelJS で JSON に変換） |
 | PWA | vite-plugin-pwa（Web App Manifest・Service Worker） |
 | ホスティング | Vercel |
+| テスト・CI | Vitest / GitHub Actions |
 | 開発ツール | ESLint / Git・GitHub |
 
 ## 設計で工夫したこと
@@ -182,6 +185,19 @@ Cloud Firestore（その人のデータだけ）
 - アイコンだけのボタンには `aria-label`、表には `<table>` と `scope` を使うなど、読み上げにも配慮しています
 - スマホでの片手操作を想定し、ボタンなどのタップ領域は44px以上にしています
 
+### 12. 自動テストとCI
+
+計算・日付・検索のような、間違っていても画面では気づきにくい中身の処理に、Vitest で単体テストを付けています（41件）。
+
+- **栄養の計算**：量からの計算、合計、目標との差の文章、記録がない日を平均に含めないこと
+- **レシピ**：鍋全体 ÷ 何食分、材料の量を変えて作り直したとき、何食分が0のとき
+- **日付**：午前3時区切りの境目（2:59 と 3:00）、月末・年末の深夜、うるう年
+- **検索**：「鶏むね肉」で若どり、「ごはん」で白いごはんが先頭に来ること。よく食べるものがすべて成分表とつながっていること、麦ごはんの混ぜた値が合っていること
+
+テストを書いたことで、**小数の誤差で四捨五入がずれる問題**が見つかりました。鶏むね肉（脂質1.9g/100g）を150g食べると脂質は2.85gですが、計算機の中では 2.8499999… になり、四捨五入すると 2.8g になっていました。10倍した値の小数の誤差を消してから四捨五入する形に直し、アプリとサーバーで同じ関数を使うようにまとめています。
+
+GitHub Actions で、プッシュのたびに lint・テスト・型チェック・ビルドを自動で実行しています。
+
 ## データ構成（Firestore）
 
 ```
@@ -215,6 +231,11 @@ npm run dev
 ```
 
 ゲストモードだけなら、Firebase の設定がなくても画面の確認はできます。
+
+```bash
+npm test        # 単体テストを1回実行
+npm run lint    # コードのチェック
+```
 
 - Claude連携のサーバー（`api/mcp.ts`）は Vercel Functions として動くため、`npm run dev` では動きません。Vercel にデプロイし、環境変数 `FIREBASE_SERVICE_ACCOUNT` に Firebase のサービスアカウントの鍵（JSON）を設定して使います
 - 成分表の JSON は `src/data/mextFoods.json` に含めています。作り直すときは、文部科学省のサイトから「日本食品標準成分表（八訂）増補2023年」の第2章（本表）の Excel をダウンロードして `scripts/mext/seibunhyo.xlsx` に置き、`npm run convert:mext` を実行します

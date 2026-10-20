@@ -1,4 +1,5 @@
 import { searchFoods } from './foodSearch';
+import { round1 } from './nutrition';
 import type { MextFood } from './mextFoods';
 
 // よく食べるものを、成分表の名前ではなく分かりやすい名前で上に出すための一覧
@@ -561,7 +562,6 @@ export const POPULAR_FOODS: PopularFood[] = [
   food('フライドポテト', '02020', [...DISH, 'フライドポテト', 'ポテト']),
 ];
 
-const round1 = (n: number) => Math.round(n * 10) / 10;
 
 // 検索語に合う「よく食べるもの」を、成分表の値（混ぜるものは計算した値）にして返す
 //   1つの食品なら code は成分表の食品番号のまま、混ぜたものは '01088+01170' のようにつなぐ
