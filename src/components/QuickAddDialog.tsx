@@ -13,6 +13,7 @@ export type QuickAddTarget = Nutrients & {
   name: string;
   unit: Food['unit'];
   baseAmount: number;
+  estimated?: boolean; // 見積もりの値の外食メニュー。記録にも「見積もり」の印を付ける
 };
 
 type Props = {
@@ -54,6 +55,7 @@ export function QuickAddDialog({ target, onSave, onClose }: Props) {
       unit: target.unit,
       amount: amountNumber,
       ...preview,
+      ...(target.estimated ? { estimated: true } : {}),
     });
   }
 

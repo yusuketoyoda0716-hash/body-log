@@ -9,13 +9,26 @@ import { useTutorial } from '../tutorial/tutorialContext';
 import { mealLabel } from '../constants/meals';
 import type { Food, MealEntry, Recipe } from '../types';
 import { formatDateLabel } from '../utils/date';
+import { foodLabel, groupByShop, isRestaurantFood } from '../utils/foodLabel';
 import styles from './FoodsPage.module.css';
 
-type Tab = 'foods' | 'recipes';
+type Tab = 'foods' | 'restaurants' | 'recipes';
+
+const TABS: { tab: Tab; label: string; noun: string }[] = [
+  { tab: 'foods', label: '食品', noun: '食品' },
+  { tab: 'restaurants', label: '外食', noun: '外食のメニュー' },
+  { tab: 'recipes', label: 'レシピ', noun: 'レシピ' },
+];
 
 // 食品はそのまま、レシピは「1食 = 1食分の値」として記録する形にそろえる
+// 外食は「店名 メニュー名」で記録し、見積もりのメニューなら記録にも「見積もり」の印を付ける
 function foodTarget(food: Food): QuickAddTarget {
-  return { ...food, foodId: food.id };
+  return {
+    ...food,
+    foodId: food.id,
+    name: foodLabel(food),
+    ...(food.estimated ? { estimated: true } : {}),
+  };
 }
 
 function recipeTarget(recipe: Recipe): QuickAddTarget {
@@ -38,8 +51,8 @@ export function FoodsPage() {
   const [foods, setFoods] = useState<Food[] | null>(null);
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
   const [query, setQuery] = useState('');
-  // null = 閉じている / 'new' = 新規追加 / Food = その食品を編集中
-  const [editing, setEditing] = useState<Food | 'new' | null>(null);
+  // null = 閉じている / 'new' = 食品の新規追加 / 'new-restaurant' = 外食メニューの新規追加 / Food = 編集中
+  const [editing, setEditing] = useState<Food | 'new' | 'new-restaurant' | null>(null);
   // 中身を表示しているレシピ
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   // null = 閉じている / 'new' = 新規作成 / Recipe = そのレシピを編集中
@@ -69,7 +82,7 @@ export function FoodsPage() {
 
   // 削除（確認してから）
   async function handleDelete(food: Food) {
-    if (!window.confirm(`「${food.name}」を削除しますか？`)) return;
+    if (!window.confirm(`「${foodLabel(food)}」を削除しますか？`)) return;
     await repository.deleteFood(food.id);
     setFoods(await repository.getFoods());
     setEditing(null);
@@ -111,10 +124,46 @@ export function FoodsPage() {
   }
 
   const keyword = query.trim();
-  const visibleFoods = foods?.filter((food) => food.name.includes(keyword)) ?? [];
+  // 食品タブには店名のないもの、外食タブには店名のあるものを出す（外食は店名でも検索できる）
+  const visibleFoods =
+    foods?.filter((food) => !isRestaurantFood(food) && food.name.includes(keyword)) ?? [];
+  const shopGroups = groupByShop(
+    foods?.filter((food) => isRestaurantFood(food) && foodLabel(food).includes(keyword)) ?? [],
+  );
   const visibleRecipes = recipes?.filter((recipe) => recipe.name.includes(keyword)) ?? [];
-  const loading = tab === 'foods' ? foods === null : recipes === null;
-  const visibleCount = tab === 'foods' ? visibleFoods.length : visibleRecipes.length;
+  const loading = tab === 'recipes' ? recipes === null : foods === null;
+  const visibleCount =
+    tab === 'foods'
+      ? visibleFoods.length
+      : tab === 'restaurants'
+        ? shopGroups.length
+        : visibleRecipes.length;
+  const noun = TABS.find((t) => t.tab === tab)?.noun ?? '';
+
+  // 食品・外食メニューの1行（タップで編集）
+  const foodRow = (food: Food) => (
+    <li key={food.id}>
+      <button type="button" className={styles.item} onClick={() => setEditing(food)}>
+        <span className={styles.info}>
+          <span className={styles.name}>
+            {food.name}
+            {food.estimated && <span className={styles.estimated}>見積もり</span>}
+          </span>
+          <span className={styles.sub}>
+            {food.baseAmount}
+            {food.unit} あたり
+          </span>
+          {food.source && <span className={styles.source}>出典：{food.source}</span>}
+        </span>
+        <span className={styles.nutrients}>
+          <span className={styles.kcal}>{food.kcal} kcal</span>
+          <span className={styles.sub}>
+            P{food.protein} F{food.fat} C{food.carbs}
+          </span>
+        </span>
+      </button>
+    </li>
+  );
 
   return (
     <>
@@ -130,6 +179,10 @@ export function FoodsPage() {
               setEditingRecipe('new');
               return;
             }
+            if (tab === 'restaurants') {
+              setEditing('new-restaurant');
+              return;
+            }
             setEditing('new');
             tutorial.notify('food-dialog-opened');
           }}
@@ -139,22 +192,17 @@ export function FoodsPage() {
       </div>
 
       <div className={styles.tabs} role="group" aria-label="表示の切り替え" data-tour="foods-tabs">
-        <button
-          type="button"
-          className={styles.tab}
-          aria-pressed={tab === 'foods'}
-          onClick={() => setTab('foods')}
-        >
-          食品
-        </button>
-        <button
-          type="button"
-          className={styles.tab}
-          aria-pressed={tab === 'recipes'}
-          onClick={() => setTab('recipes')}
-        >
-          レシピ
-        </button>
+        {TABS.map((t) => (
+          <button
+            key={t.tab}
+            type="button"
+            className={styles.tab}
+            aria-pressed={tab === t.tab}
+            onClick={() => setTab(t.tab)}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {notice && (
@@ -170,7 +218,13 @@ export function FoodsPage() {
         検索
         <input
           type="search"
-          placeholder={tab === 'foods' ? '食品名で検索' : 'レシピ名で検索'}
+          placeholder={
+            tab === 'foods'
+              ? '食品名で検索'
+              : tab === 'restaurants'
+                ? '店名・メニュー名で検索'
+                : 'レシピ名で検索'
+          }
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -181,35 +235,28 @@ export function FoodsPage() {
       ) : visibleCount === 0 ? (
         <p className={styles.message}>
           {keyword
-            ? `「${keyword}」に一致する${tab === 'foods' ? '食品' : 'レシピ'}はありません`
+            ? `「${keyword}」に一致する${noun}はありません`
             : tab === 'foods'
               ? 'まだ食品が登録されていません'
-              : 'まだレシピがありません。「＋ 追加」か、Claude連携で「カレーを4食分作った。材料は…」と送ると登録できます'}
+              : tab === 'restaurants'
+                ? 'まだ外食のメニューがありません。「＋ 追加」か、Claude連携で「マクドナルドのビッグマックとポテトMを登録して」のように送ると登録できます'
+                : 'まだレシピがありません。「＋ 追加」か、Claude連携で「カレーを4食分作った。材料は…」と送ると登録できます'}
         </p>
       ) : tab === 'foods' ? (
-        <ul className={styles.list}>
-          {visibleFoods.map((food) => (
-            <li key={food.id}>
-              {/* 行全体をボタンにして、タップで編集 */}
-              <button type="button" className={styles.item} onClick={() => setEditing(food)}>
-                <span className={styles.info}>
-                  <span className={styles.name}>{food.name}</span>
-                  <span className={styles.sub}>
-                    {food.baseAmount}
-                    {food.unit} あたり
-                  </span>
-                  {food.source && <span className={styles.source}>出典：{food.source}</span>}
-                </span>
-                <span className={styles.nutrients}>
-                  <span className={styles.kcal}>{food.kcal} kcal</span>
-                  <span className={styles.sub}>
-                    P{food.protein} F{food.fat} C{food.carbs}
-                  </span>
-                </span>
-              </button>
-            </li>
+        <ul className={styles.list}>{visibleFoods.map(foodRow)}</ul>
+      ) : tab === 'restaurants' ? (
+        // 店名を見出しにして、お店ごとにメニューを並べる
+        <div className={styles.shops}>
+          {shopGroups.map((group) => (
+            <section key={group.shop} aria-label={group.shop}>
+              <h2 className={styles.shopName}>
+                {group.shop}
+                <span className={styles.shopCount}>{group.items.length}品</span>
+              </h2>
+              <ul className={styles.list}>{group.items.map(foodRow)}</ul>
+            </section>
           ))}
-        </ul>
+        </div>
       ) : (
         <ul className={styles.list}>
           {visibleRecipes.map((recipe) => (
@@ -238,10 +285,11 @@ export function FoodsPage() {
       )}
 
       {/* 新規と編集で同じフォームを使い回す */}
-      {editing === 'new' && (
-        <FoodFormDialog onSave={handleSave} onClose={closeFoodForm} />
+      {editing === 'new' && <FoodFormDialog onSave={handleSave} onClose={closeFoodForm} />}
+      {editing === 'new-restaurant' && (
+        <FoodFormDialog restaurant onSave={handleSave} onClose={() => setEditing(null)} />
       )}
-      {editing !== null && editing !== 'new' && (
+      {editing !== null && editing !== 'new' && editing !== 'new-restaurant' && (
         <FoodFormDialog
           initialFood={editing}
           onSave={handleSave}

@@ -12,6 +12,8 @@ export type Food = Nutrients & {
   unit: 'g' | '個' | '杯' | '食';
   baseAmount: number;
   source?: string; // 値の出典（成分表、調べたサイト名や URL など）。自分で入力した食品にはない
+  shop?: string; // 外食のメニューなら店名（例：サイゼリヤ）。あると「外食」タブに出る
+  estimated?: boolean; // 公式の値ではなく、見積もった値のメニュー（外食で、形が決まった料理だけ残す）
 };
 
 // レシピの材料：材料の食品の「基準量あたりの値」と、使った量を持つ

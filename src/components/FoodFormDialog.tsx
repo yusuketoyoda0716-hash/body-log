@@ -11,6 +11,8 @@ const UNITS: Food['unit'][] = ['g', '個', '杯', '食'];
 // 入力中の値。input の中身は文字列なので、保存するときに数値へ変換する
 type FormValues = {
   name: string;
+  shop: string; // 外食のときの店名（食品なら空）
+  estimated: boolean; // 外食で、公式の値ではなく見積もった値のとき
   unit: Food['unit'];
   baseAmount: string;
   kcal: string;
@@ -21,6 +23,8 @@ type FormValues = {
 
 const emptyValues: FormValues = {
   name: '',
+  shop: '',
+  estimated: false,
   unit: 'g',
   baseAmount: '100',
   kcal: '',
@@ -39,6 +43,8 @@ const nutrientFields = [
 function toFormValues(food: Food): FormValues {
   return {
     name: food.name,
+    shop: food.shop ?? '',
+    estimated: Boolean(food.estimated),
     unit: food.unit,
     baseAmount: String(food.baseAmount),
     kcal: String(food.kcal),
@@ -64,8 +70,10 @@ function readNutrients(v: FormValues): Nutrients | null {
 }
 
 // 問題があればエラーメッセージ、なければ null を返す
-function validate(v: FormValues): string | null {
-  if (v.name.trim() === '') return '食品名を入力してください';
+function validate(v: FormValues, requireShop: boolean): string | null {
+  if (requireShop && v.shop.trim() === '') return '店名を入力してください';
+  if (v.name.trim() === '')
+    return requireShop ? 'メニュー名を入力してください' : '食品名を入力してください';
 
   const base = Number(v.baseAmount);
   if (v.baseAmount === '' || !(base > 0)) return '基準量は0より大きい数値を入力してください';
@@ -83,16 +91,34 @@ type Props = {
   onClose: () => void;
   onDelete?: () => void; // 編集のときだけ渡す
   onAddToday?: () => void; // 編集のときだけ渡す（今日の食事に追加）
+  restaurant?: boolean; // 「外食」タブから追加するとき（店名を必須にして、1食あたりで入れる）
 };
 
-export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddToday }: Props) {
+export function FoodFormDialog({
+  initialFood,
+  onSave,
+  onClose,
+  onDelete,
+  onAddToday,
+  restaurant = false,
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [values, setValues] = useState<FormValues>(() =>
-    initialFood ? toFormValues(initialFood) : emptyValues,
+    initialFood
+      ? toFormValues(initialFood)
+      : // 外食のメニューは「1食あたり」で入れることが多い
+        restaurant
+        ? { ...emptyValues, unit: '食', baseAmount: '1' }
+        : emptyValues,
   );
+  // 店名が入っていれば外食のメニューとして扱う（外食タブから開いたときは店名が必須）
+  const isRestaurant = restaurant || values.shop.trim() !== '' || Boolean(initialFood?.shop);
   const [error, setError] = useState<string | null>(null);
   // 新規追加のときだけ「成分表から探す」を選べる。最初は成分表の検索を出す
-  const [mode, setMode] = useState<'search' | 'manual'>(initialFood ? 'manual' : 'search');
+  //   外食は成分表にないことが多いので、最初から「自分で入力」にする
+  const [mode, setMode] = useState<'search' | 'manual'>(
+    initialFood || restaurant ? 'manual' : 'search',
+  );
   // 成分表から選んだ食品（入力欄の上に「〇〇の値を入れました」と出すため）
   const [picked, setPicked] = useState<MextFood | null>(null);
   // 量を変えたら、カロリーとPFCも同じ割合で計算し直す。そのもとになる値
@@ -147,7 +173,10 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
 
   // 成分表の食品を選んだら、100gあたりの値を入力欄に入れて「自分で入力」に切り替える
   function handleSelect(food: MextFood) {
-    setValues({
+    setValues((prev) => ({
+      // 店名は入れたままにする（外食のメニューを成分表の料理から登録するとき）
+      shop: prev.shop,
+      estimated: false,
       name: pickedName(food),
       unit: 'g',
       baseAmount: '100',
@@ -155,7 +184,7 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
       protein: String(food.protein),
       fat: String(food.fat),
       carbs: String(food.carbs),
-    });
+    }));
     setPicked(food);
     setReference({ baseAmount: 100, nutrients: food });
     setError(null);
@@ -164,7 +193,7 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
 
   function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault(); // ページの再読み込みを止める
-    const message = validate(values);
+    const message = validate(values, restaurant);
     if (message) {
       setError(message);
       return;
@@ -181,6 +210,9 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
       ...(source ? { source } : {}),
       id: initialFood?.id ?? crypto.randomUUID(),
       name: values.name.trim(),
+      // 店名があれば外食のメニュー。見積もりの印は外食のときだけ付ける
+      ...(values.shop.trim() ? { shop: values.shop.trim() } : {}),
+      ...(values.shop.trim() && values.estimated ? { estimated: true } : {}),
       unit: values.unit,
       baseAmount: Number(values.baseAmount),
       kcal: Number(values.kcal),
@@ -189,6 +221,18 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
       carbs: Number(values.carbs),
     });
   }
+
+  const shopField = (
+    <label className={styles.field}>
+      {restaurant ? '店名' : '店名（外食のメニューのときだけ）'}
+      <input
+        type="text"
+        placeholder="例：サイゼリヤ"
+        value={values.shop}
+        onChange={(e) => update('shop', e.target.value)}
+      />
+    </label>
+  );
 
   return (
     <dialog
@@ -199,7 +243,13 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
     >
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
         <h2 id="food-form-title" className={styles.title}>
-          {initialFood ? '食品を編集' : '食品を追加'}
+          {initialFood
+            ? isRestaurant
+              ? '外食メニューを編集'
+              : '食品を編集'
+            : isRestaurant
+              ? '外食メニューを追加'
+              : '食品を追加'}
         </h2>
         <TutorialHint dialog="food" />
 
@@ -237,14 +287,31 @@ export function FoodFormDialog({ initialFood, onSave, onClose, onDelete, onAddTo
               </p>
             )}
 
+            {/* 外食タブから開いたときは店名を先に。食品から開いたときは、外食にしたいときだけ入れる */}
+            {restaurant && shopField}
+
             <label className={styles.field}>
-              食品名
+              {isRestaurant ? 'メニュー名' : '食品名'}
               <input
                 type="text"
+                placeholder={isRestaurant ? '例：ミラノ風ドリア' : undefined}
                 value={values.name}
                 onChange={(e) => update('name', e.target.value)}
               />
             </label>
+
+            {!restaurant && shopField}
+
+            {values.shop.trim() !== '' && (
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={values.estimated}
+                  onChange={(e) => update('estimated', e.target.checked)}
+                />
+                公式の値ではなく、見積もった値（一覧に「見積もり」と表示します）
+              </label>
+            )}
 
             <div className={styles.row}>
               <label className={styles.field}>

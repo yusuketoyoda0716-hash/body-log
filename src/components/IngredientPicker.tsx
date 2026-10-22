@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Food, RecipeIngredient } from '../types';
+import { isRestaurantFood } from '../utils/foodLabel';
 import { searchFoods } from '../utils/foodSearch';
 import { pickedName, type MextFood } from '../utils/mextFoods';
 import formStyles from './FoodFormDialog.module.css';
@@ -66,7 +67,9 @@ export function IngredientPicker({ foods, onPick, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const keyword = query.trim();
-  const registeredResults = keyword ? searchFoods(foods, keyword) : foods;
+  // 外食のメニューは材料にしないので外す
+  const ingredientFoods = foods.filter((food) => !isRestaurantFood(food));
+  const registeredResults = keyword ? searchFoods(ingredientFoods, keyword) : ingredientFoods;
 
   function pickFood(food: Food) {
     onPick({
@@ -130,11 +133,7 @@ export function IngredientPicker({ foods, onPick, onCancel }: Props) {
     <>
       <h2 className={formStyles.title}>材料を追加</h2>
 
-      <div
-        className={`${formStyles.tabs} ${styles.tabs}`}
-        role="group"
-        aria-label="材料の選び方"
-      >
+      <div className={`${formStyles.tabs} ${styles.tabs}`} role="group" aria-label="材料の選び方">
         {tabs.map((tab) => (
           <button
             key={tab.mode}
@@ -164,7 +163,9 @@ export function IngredientPicker({ foods, onPick, onCancel }: Props) {
           </label>
           {registeredResults.length === 0 ? (
             <p className={listStyles.message}>
-              {foods.length === 0 ? 'まだ食品が登録されていません' : `「${keyword}」に一致する食品はありません`}
+              {foods.length === 0
+                ? 'まだ食品が登録されていません'
+                : `「${keyword}」に一致する食品はありません`}
             </p>
           ) : (
             <ul className={listStyles.list}>

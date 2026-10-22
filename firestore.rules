@@ -1,0 +1,189 @@
+rules_version = '2';
+
+// Cloud Firestore のセキュリティルール
+// （本番のルールは Firebase コンソールで公開している。これは変更履歴を残すための控え）
+//
+// 方針
+//   - users/{uid}/ 以下は、ログインしている本人だけが読み書きできる
+//   - 書き込むときは、アプリが保存する形（項目・型・大きさ）と合っているかも確かめる
+//     → 壊れたデータや、巨大なデータで無料枠を使い切られることを防ぐ
+//   - Claude連携のサーバー（Admin SDK）はこのルールの外で動くので、サーバー側でも Zod でチェックしている
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- 共通のチェック ----
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // 0以上 max 以下の数値
+    function isAmount(v, max) {
+      return v is number && v >= 0 && v <= max;
+    }
+
+    // 1文字以上 max 文字以下の文字列
+    function isText(v, max) {
+      return v is string && v.size() >= 1 && v.size() <= max;
+    }
+
+    // 'YYYY-MM-DD'
+    function isDate(v) {
+      return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function isUnit(v) {
+      return v in ['g', '個', '杯', '食'];
+    }
+
+    // カロリー・PFC
+    function hasNutrients(d) {
+      return isAmount(d.kcal, 100000)
+        && isAmount(d.protein, 10000)
+        && isAmount(d.fat, 10000)
+        && isAmount(d.carbs, 10000);
+    }
+
+    // 目標の範囲（下限〜上限）
+    function isRange(r) {
+      return r is map
+        && r.keys().hasOnly(['min', 'max'])
+        && isAmount(r.min, 100000)
+        && isAmount(r.max, 100000)
+        && r.min <= r.max;
+    }
+
+    // 未設定（null）か、0以上 max 以下の数値
+    function isOptionalAmount(v, max) {
+      return v == null || isAmount(v, max);
+    }
+
+    // ---- 各データの形 ----
+
+    function isFood(d, foodId) {
+      return d.keys().hasAll(['id', 'name', 'unit', 'baseAmount', 'kcal', 'protein', 'fat', 'carbs'])
+        && d.keys().hasOnly(['id', 'name', 'unit', 'baseAmount', 'kcal', 'protein', 'fat', 'carbs', 'source', 'shop', 'estimated'])
+        && d.id == foodId
+        && isText(d.name, 100)
+        && isUnit(d.unit)
+        && isAmount(d.baseAmount, 10000) && d.baseAmount > 0
+        && hasNutrients(d)
+        && (!('source' in d) || isText(d.source, 500))
+        // 外食のメニューなら店名と、見積もりの値かどうか
+        && (!('shop' in d) || isText(d.shop, 50))
+        && (!('estimated' in d) || d.estimated is bool);
+    }
+
+    function isRecipe(d, recipeId) {
+      return d.keys().hasAll(['id', 'name', 'servings', 'ingredients', 'kcal', 'protein', 'fat', 'carbs'])
+        && d.keys().hasOnly(['id', 'name', 'servings', 'ingredients', 'kcal', 'protein', 'fat', 'carbs'])
+        && d.id == recipeId
+        && isText(d.name, 100)
+        && isAmount(d.servings, 100) && d.servings > 0
+        && d.ingredients is list && d.ingredients.size() >= 1 && d.ingredients.size() <= 100
+        && hasNutrients(d);
+    }
+
+    function isEntry(d, entryId) {
+      return d.keys().hasAll(['id', 'date', 'mealType', 'foodId', 'foodName', 'unit', 'amount', 'kcal', 'protein', 'fat', 'carbs'])
+        && d.keys().hasOnly(['id', 'date', 'mealType', 'foodId', 'foodName', 'unit', 'amount', 'kcal', 'protein', 'fat', 'carbs', 'estimated'])
+        && d.id == entryId
+        && isDate(d.date)
+        && d.mealType in ['breakfast', 'lunch', 'dinner', 'snack']
+        && isText(d.foodId, 200)
+        && isText(d.foodName, 200)
+        && isUnit(d.unit)
+        && isAmount(d.amount, 100000) && d.amount > 0
+        && hasNutrients(d)
+        && (!('estimated' in d) || d.estimated is bool);
+    }
+
+    function isBodyRecord(d, date) {
+      return d.keys().hasAll(['date', 'weight', 'bodyFat'])
+        && d.keys().hasOnly(['date', 'weight', 'bodyFat'])
+        && d.date == date
+        && isDate(d.date)
+        && isAmount(d.weight, 500)
+        && isAmount(d.bodyFat, 100);
+    }
+
+    // ---- 本人のデータ ----
+
+    match /users/{userId} {
+      match /foods/{foodId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isFood(request.resource.data, foodId);
+      }
+
+      match /recipes/{recipeId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isRecipe(request.resource.data, recipeId);
+      }
+
+      match /entries/{entryId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isEntry(request.resource.data, entryId);
+      }
+
+      match /bodyRecords/{date} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isBodyRecord(request.resource.data, date);
+      }
+
+      // 1日の目標
+      match /settings/goals {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['kcal', 'protein', 'fat', 'carbs'])
+          && request.resource.data.keys().hasAll(['kcal', 'protein', 'fat', 'carbs'])
+          && isRange(request.resource.data.kcal)
+          && isRange(request.resource.data.protein)
+          && isRange(request.resource.data.fat)
+          && isRange(request.resource.data.carbs);
+      }
+
+      // 体組成の目標（未設定は null）
+      match /settings/bodyGoal {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['weight', 'bodyFat', 'deadline'])
+          && request.resource.data.keys().hasAll(['weight', 'bodyFat', 'deadline'])
+          && isOptionalAmount(request.resource.data.weight, 500)
+          && isOptionalAmount(request.resource.data.bodyFat, 100)
+          && (request.resource.data.deadline == null || isDate(request.resource.data.deadline));
+      }
+
+      // チュートリアルを見終わった日時
+      match /settings/tutorial {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['doneAt'])
+          && isText(request.resource.data.doneAt, 40);
+      }
+
+      // Claude連携の状態（合言葉のハッシュ値と発行日時）
+      match /settings/mcp {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId)
+          && request.resource.data.keys().hasOnly(['tokenHash', 'createdAt'])
+          && request.resource.data.tokenHash.matches('^[0-9a-f]{64}$')
+          && isText(request.resource.data.createdAt, 40);
+      }
+    }
+
+    // ---- Claude連携の合言葉の表（中身はハッシュ値と uid だけ） ----
+
+    match /mcpTokens/{tokenHash} {
+      // 自分の uid のものだけ作れる。ID はハッシュ値（16進数64文字）だけ
+      allow create: if request.auth != null
+        && tokenHash.matches('^[0-9a-f]{64}$')
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && isText(request.resource.data.createdAt, 40);
+      // 自分のものだけ消せる
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      // 読み取り・書き換えはブラウザからは不可（サーバーだけが読む）
+      allow read, update: if false;
+    }
+  }
+}

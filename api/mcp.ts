@@ -32,6 +32,7 @@ import type {
   Recipe,
   RecipeIngredient,
 } from '../src/types/index.js';
+import { foodLabel, isSameFood } from '../src/utils/foodLabel.js';
 import { displayName, searchFoods } from '../src/utils/foodSearch.js';
 import { describeRange, round1, sumNutrients } from '../src/utils/nutrition.js';
 import { buildRecipe, recipeTotal } from '../src/utils/recipe.js';
@@ -114,7 +115,6 @@ function pickNutrients(n: Nutrients): Nutrients {
 }
 
 // 名前が同じかどうか（前後の空白だけ無視する）
-const sameName = (a: string, b: string) => a.trim() === b.trim();
 
 function textResult(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data) }] };
@@ -143,6 +143,14 @@ const nutrientSchema = z.number().min(0);
 const sourceSchema = z
   .string()
   .describe('値の出典（調べたサイト名や URL など）。成分表の食品では不要');
+const shopSchema = z
+  .string()
+  .min(1)
+  .max(50)
+  .optional()
+  .describe(
+    '外食のときの店名（例：サイゼリヤ）。入れると name はメニュー名として扱い、アプリの「外食」タブに店ごとにまとまる',
+  );
 const estimatedSchema = z
   .boolean()
   .optional()
@@ -188,7 +196,11 @@ const entrySchema = z.discriminatedUnion('source', [
     date: dateSchema.optional(),
     mealType: mealTypeSchema.optional(),
     estimated: estimatedSchema,
-    name: z.string().min(1).describe('食品名。品目がなく合計だけなら「夕食（まとめ）」など'),
+    shop: shopSchema,
+    name: z
+      .string()
+      .min(1)
+      .describe('食品名（外食なら店名を含めないメニュー名）。品目がなく合計だけなら「夕食（まとめ）」など'),
     amount: amountSchema.describe('量'),
     unit: unitSchema.describe('量の単位'),
     kcal: nutrientSchema.describe('この量でのカロリー'),
@@ -264,15 +276,22 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
 4. 食べたときは add_meal_entries の recipe で「1食」「0.5食」のように記録する
 
 外食・テイクアウトのとき（店名とメニューが送られたら）：
-1. まず search_food で探す。「店名 メニュー名」で登録食品にあれば、それを使う（前に公式の値を登録したもの）
+- 外食は店名とメニュー名を分けて扱う。custom・save_food では shop に店名、name にメニュー名（店名を含めない）を入れる。アプリの「外食」タブに店ごとにまとまる
+1. まず search_food で探す。「店名 メニュー名」で登録食品にあれば、それを使う（前に登録したもの。estimated: true なら見積もりの値なので、記録も見積もりになる）
 2. なければ、次の順で値を決める
    ① その店の公式サイトの栄養成分（チェーン店の多くは公開している）→ custom、valueKind: official、valueSource に出典
    ② 公式の値がなければ、似たメニューを出しているチェーン店の公式の値で代用 → custom、valueKind: similar、valueSource に「○○（店名）の△△で代用」
    ③ それもなければ、成分表のできあがりの料理（から揚げ・ハンバーグ・カツ丼の具 など）を search_food で探し、量を見積もって mext で記録 → estimated: true
    ④ どれも合わなければ、中身を分けて見積もる（ごはん○g・肉○g・衣・油 など）。外食は油や砂糖が多めなので、油を材料として数える → custom、valueKind: estimate
-3. 名前は「店名 メニュー名」（例：サイゼリヤ ミラノ風ドリア）。official だけが登録食品に追加されるので、次からすぐ使える
+3. official は自動で外食タブに登録される（1食・1個 など記録した量あたり）。次からすぐ使える
 4. 記録したら、どの方法の値か（公式／〇〇で代用／見積もり）を伝える。大盛り・ごはん少なめ などの指定は量に反映する
 5. メニューの kcal 表示や料理の写真があると精度が上がるので、②〜④のときは「メニュー表やお皿の写真があれば送ってください」と一言そえる
+6. ②〜④の見積もりで、メニューの形が決まっている料理（定食・丼・ラーメン・パスタ など、毎回だいたい同じ量で出るもの）のときだけ、記録のあとに「次もすぐ記録できるよう、外食に登録しておきますか？」と聞く。はいと言われたら save_food（shop・estimated: true・1食あたり）で登録する
+   - 食べ放題・寿司（ネタや貫数が毎回違う）・コース料理・居酒屋 のように、食べた中身と量がその日しだいのものは聞かない。その日の記録だけにする
+
+お店のメニューをまとめて登録したいと言われたとき（「マクドナルドのビッグマックとポテトMを登録して」など）：
+- その店の公式サイトで栄養成分を調べ、メニューごとに save_food（shop に店名、name にメニュー名、1個・1食 などあたり、valueSource に出典）で登録する。記録はしない
+- 公式の値が見つからないメニューは登録せず、見つからなかったことを伝える
 
 写真が送られたとき：
 - 料理の写真：料理ごとに食品と量（グラム）を見積もり、記録する前に一覧（食品・量・kcal・PFC）を見せてユーザーに確認する。確認がとれてから add_meal_entries で記録する
@@ -378,7 +397,7 @@ function createServer(uid: string) {
   }
 
   const server = new McpServer(
-    { name: 'body-log', version: '1.5.0' },
+    { name: 'body-log', version: '1.6.0' },
     { instructions: INSTRUCTIONS },
   );
 
@@ -406,11 +425,18 @@ function createServer(uid: string) {
           per: `1食あたり（${r.servings}食分のレシピ）`,
           ...pickNutrients(r),
         })),
-        registered: searchFoods(registered, query, 10).map((f) => ({
+        // 外食のメニューは「店名 メニュー名」で探せるようにする
+        registered: searchFoods(
+          registered.map((f) => ({ food: f, name: foodLabel(f) })),
+          query,
+          10,
+        ).map(({ food: f }) => ({
           id: f.id,
           name: f.name,
+          ...(f.shop ? { shop: f.shop } : {}),
           per: `${f.baseAmount}${f.unit}あたり`,
           ...pickNutrients(f),
+          ...(f.estimated ? { estimated: true } : {}),
           ...(f.source ? { source: f.source } : {}),
         })),
         mext: searchFoods(getMextFoods(), query, 10).map((f) => ({
@@ -446,7 +472,7 @@ function createServer(uid: string) {
 
       // 登録食品に同じ名前がなければ、追加する食品として控えておく
       const addFoodIfNew = (food: Omit<Food, 'id'>) => {
-        const exists = [...registered, ...newFoods].some((f) => sameName(f.name, food.name));
+        const exists = [...registered, ...newFoods].some((f) => isSameFood(f, food));
         if (!exists) newFoods.push({ id: randomUUID(), ...food });
       };
 
@@ -470,10 +496,12 @@ function createServer(uid: string) {
           docs.push({
             ...base,
             foodId: food.id,
-            foodName: food.name,
+            foodName: foodLabel(food),
             unit: food.unit,
             amount: input.amount,
             ...scale(food, food.baseAmount, input.amount),
+            // 見積もりの値の外食メニューなら、記録も「見積もり」にする
+            ...(food.estimated ? { estimated: true } : {}),
           });
         } else if (input.source === 'recipe') {
           const recipe = recipes.find((r) => r.id === input.recipeId);
@@ -506,10 +534,11 @@ function createServer(uid: string) {
             fat: round1(input.fat),
             carbs: round1(input.carbs),
           };
+          const shop = input.shop?.trim();
           docs.push({
             ...base,
             foodId: 'custom',
-            foodName: input.name,
+            foodName: foodLabel({ name: input.name.trim(), shop }),
             unit: input.unit,
             amount: input.amount,
             ...values,
@@ -519,6 +548,7 @@ function createServer(uid: string) {
             // 記録した量をそのまま基準量にする（例：1個あたり、250gあたり）
             addFoodIfNew({
               name: input.name.trim(),
+              ...(shop ? { shop } : {}),
               unit: input.unit,
               baseAmount: input.amount,
               ...values,
@@ -610,9 +640,17 @@ function createServer(uid: string) {
     {
       title: '食品を登録する',
       description:
-        '食品を登録食品に保存します。同じ名前の食品があれば、その値を上書きします。値は baseAmount（基準量）あたりで入れます（例：1個あたり、100gあたり）。',
+        '食品を登録食品に保存します。同じ名前（外食なら同じ店名とメニュー名）の食品があれば、その値を上書きします。値は baseAmount（基準量）あたりで入れます（例：1個あたり、100gあたり、外食は1食あたり）。',
       inputSchema: {
-        name: z.string().min(1).describe('食品名（例：プロテイン、セブンのサラダチキン）'),
+        name: z
+          .string()
+          .min(1)
+          .describe('食品名（例：プロテイン、セブンのサラダチキン）。外食なら店名を含めないメニュー名'),
+        shop: shopSchema,
+        estimated: z
+          .boolean()
+          .optional()
+          .describe('外食で、公式の値ではなく見積もった値のときは true（一覧に「見積もり」と表示される）'),
         unit: unitSchema.describe('単位'),
         baseAmount: amountSchema.describe('基準量（例：100g あたりなら 100、1個あたりなら 1）'),
         kcal: nutrientSchema.describe('基準量あたりのカロリー'),
@@ -624,10 +662,14 @@ function createServer(uid: string) {
     },
     async (input) => {
       const registered = await getRegisteredFoods();
-      const existing = registered.find((f) => sameName(f.name, input.name));
+      const shop = input.shop?.trim();
+      const existing = registered.find((f) => isSameFood(f, { name: input.name.trim(), shop }));
       const food: Food = {
         id: existing?.id ?? randomUUID(),
         name: input.name.trim(),
+        // 店名があれば外食のメニュー。見積もりの印は外食のときだけ付ける
+        ...(shop ? { shop } : {}),
+        ...(shop && input.estimated ? { estimated: true } : {}),
         unit: input.unit,
         baseAmount: input.baseAmount,
         kcal: round1(input.kcal),
@@ -639,7 +681,7 @@ function createServer(uid: string) {
       await foodsCol.doc(food.id).set(food);
       return textResult({
         result: existing ? '同じ名前の食品を上書きしました' : '新しく登録しました',
-        food: { ...food, per: `${food.baseAmount}${food.unit}あたり` },
+        food: { ...food, label: foodLabel(food), per: `${food.baseAmount}${food.unit}あたり` },
       });
     },
   );
@@ -702,7 +744,7 @@ function createServer(uid: string) {
         }
       }
 
-      const existing = recipes.find((r) => sameName(r.name, name));
+      const existing = recipes.find((r) => isSameFood(r, { name }));
       const recipe = buildRecipe({
         id: existing?.id ?? randomUUID(),
         name: name.trim(),
@@ -733,7 +775,7 @@ function createServer(uid: string) {
     async ({ name }) => {
       const recipes = await getRecipes();
       const recipe =
-        recipes.find((r) => sameName(r.name, name)) ?? searchFoods(recipes, name, 1)[0];
+        recipes.find((r) => isSameFood(r, { name })) ?? searchFoods(recipes, name, 1)[0];
       if (!recipe) return errorResult(`レシピ「${name}」が見つかりません`);
       return textResult(recipeView(recipe));
     },

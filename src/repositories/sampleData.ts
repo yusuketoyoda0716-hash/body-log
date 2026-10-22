@@ -1,6 +1,7 @@
 import type { BodyGoal, BodyRecord, Food, Goals, MealEntry, MealType, Recipe } from '../types';
 import { defaultGoals } from '../constants/goals';
 import { addDays, today } from '../utils/date';
+import { foodLabel } from '../utils/foodLabel';
 import { calcNutrients } from '../utils/nutrition';
 import { buildRecipe } from '../utils/recipe';
 
@@ -36,6 +37,33 @@ const sampleFoods: Food[] = [
   { id: 'broccoli', name: 'ブロッコリー', unit: 'g', baseAmount: 100, kcal: 37, protein: 5.4, fat: 0.6, carbs: 6.6 },
   { id: 'miso-soup', name: '味噌汁', unit: '杯', baseAmount: 1, kcal: 40, protein: 2.5, fat: 1.2, carbs: 4.5 },
   { id: 'tonjiru', name: '豚汁', unit: '杯', baseAmount: 1, kcal: 120, protein: 6.5, fat: 6.5, carbs: 8 },
+  // 外食の見本（架空のお店。公式の値がないので、中身から見積もった値）
+  {
+    id: 'teishoku',
+    shop: '近所の定食屋',
+    name: '生姜焼き定食',
+    unit: '食',
+    baseAmount: 1,
+    kcal: 820,
+    protein: 34,
+    fat: 36,
+    carbs: 88,
+    estimated: true,
+    source: '中身から見積もり（ごはん200g・豚ロース120g・キャベツ・油大さじ1）',
+  },
+  {
+    id: 'ramen',
+    shop: '駅前のラーメン屋',
+    name: '醤油ラーメン',
+    unit: '杯',
+    baseAmount: 1,
+    kcal: 480,
+    protein: 20,
+    fat: 14,
+    carbs: 66,
+    estimated: true,
+    source: '中身から見積もり（中華麺230g・スープ・チャーシュー2枚）',
+  },
 ];
 
 // 1日分の献立：[食事区分, 食品ID, 量]
@@ -75,9 +103,7 @@ const PLANS: DayPlan[] = [
     ['breakfast', 'banana', 1],
     ['breakfast', 'protein', 1],
     ['breakfast', 'egg', 1],
-    ['lunch', 'rice', 250],
-    ['lunch', 'salad-chicken', 1],
-    ['lunch', 'miso-soup', 1],
+    ['lunch', 'teishoku', 1],
     ['dinner', 'rice', 200],
     ['dinner', 'chicken-breast', 150],
     ['dinner', 'tofu', 150],
@@ -132,10 +158,11 @@ export function createSampleData(): Store {
         date,
         mealType,
         foodId,
-        foodName: food.name,
+        foodName: foodLabel(food),
         unit: food.unit,
         amount,
         ...calcNutrients(food, amount),
+        ...(food.estimated ? { estimated: true } : {}),
       });
     });
   }

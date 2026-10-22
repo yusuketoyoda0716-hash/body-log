@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Food, MealEntry, MealType, Nutrients, Recipe } from '../types';
 import { TutorialHint } from '../tutorial/TutorialHint';
+import { foodLabel, isRestaurantFood } from '../utils/foodLabel';
 import { calcNutrients } from '../utils/nutrition';
 import formStyles from './FoodFormDialog.module.css';
 import styles from './MealEntryDialog.module.css';
@@ -22,11 +23,19 @@ type Choice = Nutrients & {
   name: string;
   unit: Food['unit'];
   baseAmount: number;
+  estimated?: boolean; // 見積もりの値の外食メニュー
 };
 
 function toChoices(foods: Food[], recipes: Recipe[]) {
   return {
-    foods: foods.map<Choice>((f) => ({ ...f, key: `food:${f.id}`, foodId: f.id })),
+    foods: foods
+      .filter((f) => !isRestaurantFood(f))
+      .map<Choice>((f) => ({ ...f, key: `food:${f.id}`, foodId: f.id })),
+    // 外食は「店名 メニュー名」で選べるようにする
+    restaurants: foods
+      .filter(isRestaurantFood)
+      .map<Choice>((f) => ({ ...f, key: `food:${f.id}`, foodId: f.id, name: foodLabel(f) }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ja')),
     recipes: recipes.map<Choice>((r) => ({
       key: `recipe:${r.id}`,
       foodId: `recipe:${r.id}`,
@@ -61,12 +70,13 @@ export function MealEntryDialog({
   }, []);
 
   const choices = toChoices(foods, recipes);
-  const allChoices = [...choices.foods, ...choices.recipes];
+  const allChoices = [...choices.foods, ...choices.restaurants, ...choices.recipes];
 
   // 選ばれている食品（またはレシピ）と、計算結果（食品と正しい量がそろったときだけ）
   const food = allChoices.find((c) => c.key === choiceKey);
   const amountNumber = Number(amount);
-  const preview = food && amount !== '' && amountNumber > 0 ? calcNutrients(food, amountNumber) : null;
+  const preview =
+    food && amount !== '' && amountNumber > 0 ? calcNutrients(food, amountNumber) : null;
 
   // 食品を選んだら、量にその食品の基準量を入れておく
   function handleFoodChange(key: string) {
@@ -94,6 +104,7 @@ export function MealEntryDialog({
       unit: food.unit,
       amount: amountNumber,
       ...preview,
+      ...(food.estimated ? { estimated: true } : {}),
     });
   }
 
@@ -111,7 +122,9 @@ export function MealEntryDialog({
         <TutorialHint dialog="entry" />
 
         {allChoices.length === 0 ? (
-          <p className={formStyles.hint}>登録食品がありません。先に「食品」タブで登録してください。</p>
+          <p className={formStyles.hint}>
+            登録食品がありません。先に「食品」タブで登録してください。
+          </p>
         ) : (
           <>
             <label className={formStyles.field}>
@@ -126,6 +139,16 @@ export function MealEntryDialog({
                     </option>
                   ))}
                 </optgroup>
+                {choices.restaurants.length > 0 && (
+                  <optgroup label="外食">
+                    {choices.restaurants.map((c) => (
+                      <option key={c.key} value={c.key}>
+                        {c.name}（{c.baseAmount}
+                        {c.unit}あたり {c.kcal}kcal{c.estimated ? '・見積もり' : ''}）
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
                 {choices.recipes.length > 0 && (
                   <optgroup label="レシピ">
                     {choices.recipes.map((c) => (
