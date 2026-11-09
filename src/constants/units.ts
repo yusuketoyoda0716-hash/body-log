@@ -11,7 +11,7 @@ export const COUNT_UNITS: CountUnit[] = ['個', '枚', '本'];
 export function quickAmounts(unit: Food['unit']): number[] {
   switch (unit) {
     case 'g':
-      return [50, 100, 150, 200, 250];
+      return [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
     case '食':
       return [0.5, 1, 1.5];
     case '杯':
