@@ -103,6 +103,7 @@ type Props = {
   onAddToday?: () => void; // 編集のときだけ渡す（今日の食事に追加）
   restaurant?: boolean; // 「外食」タブから追加するとき（店名を必須にして、1食あたりで入れる）
   defaultCategory?: FoodCategory; // 新しく追加するときの種類（開いたタブに合わせる）
+  defaultShop?: string; // 外食のお店を開いて「このお店にメニューを追加」したときの店名
 };
 
 export function FoodFormDialog({
@@ -113,6 +114,7 @@ export function FoodFormDialog({
   onAddToday,
   restaurant = false,
   defaultCategory = 'ingredient',
+  defaultShop = '',
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [values, setValues] = useState<FormValues>(() =>
@@ -120,7 +122,7 @@ export function FoodFormDialog({
       ? toFormValues(initialFood)
       : // 外食のメニューは「1食あたり」で入れることが多い
         restaurant
-        ? { ...emptyValues, unit: '食', baseAmount: '1' }
+        ? { ...emptyValues, shop: defaultShop, unit: '食', baseAmount: '1' }
         : emptyValues,
   );
   // 食材・市販品・外食のどれか。成分表から選んだら食材、パッケージの値を入れるなら市販品が多い

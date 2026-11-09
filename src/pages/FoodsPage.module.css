@@ -175,15 +175,69 @@ button.noticeLink {
 .shops {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
+}
+
+/* お店の行。押すとメニューが開く */
+.shop {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shopHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.shopHeader[aria-expanded='true'] {
+  border-color: var(--color-primary);
 }
 
 .shopName {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 0 0 8px;
+  min-width: 0;
   font-size: 15px;
+  font-weight: 700;
+}
+
+.chevron {
+  flex-shrink: 0;
+  width: 32px;
+  font-size: 20px;
+  text-align: center;
+  color: var(--color-muted);
+  transition: transform 0.15s;
+}
+
+.shopHeader[aria-expanded='true'] .chevron {
+  transform: rotate(90deg);
+}
+
+/* 開いたお店のメニューの下：このお店にメニューを追加 */
+.addToShop {
+  height: 44px;
+  margin-bottom: 8px;
+  border: 1px dashed var(--color-primary);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .shopCount {

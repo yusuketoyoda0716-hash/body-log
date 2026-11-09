@@ -80,6 +80,10 @@ export function FoodsPage() {
   const bySort = sortKey !== 'name';
   // null = 閉じている / 'new' = 食材・市販品の新規追加 / 'new-restaurant' = 外食メニューの新規追加 / Food = 編集中
   const [editing, setEditing] = useState<Food | 'new' | 'new-restaurant' | null>(null);
+  // 外食メニューを追加するときに最初から入れておく店名（お店を開いて「このお店に追加」したとき）
+  const [newMenuShop, setNewMenuShop] = useState('');
+  // 外食タブで開いているお店（メニューが多いお店でもスクロールしすぎないよう、最初は閉じておく）
+  const [openShops, setOpenShops] = useState<Set<string>>(new Set());
   // 中身を表示しているレシピ
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   // null = 閉じている / 'new' = 新規作成 / Recipe = そのレシピを編集中
@@ -95,6 +99,15 @@ export function FoodsPage() {
     repository.getFoods().then(setFoods);
     repository.getRecipes().then(setRecipes);
   }, [repository]);
+
+  function toggleShop(shop: string) {
+    setOpenShops((prev) => {
+      const next = new Set(prev);
+      if (next.has(shop)) next.delete(shop);
+      else next.add(shop);
+      return next;
+    });
+  }
 
   async function handleSave(food: Food) {
     await repository.saveFood(food);
@@ -265,6 +278,7 @@ export function FoodsPage() {
               return;
             }
             if (tab === 'restaurants') {
+              setNewMenuShop('');
               setEditing('new-restaurant');
               return;
             }
@@ -373,15 +387,43 @@ export function FoodsPage() {
       ) : tab === 'restaurants' ? (
         // 店名を見出しにして、お店ごとにメニューを並べる
         <div className={styles.shops}>
-          {shopGroups.map((group) => (
-            <section key={group.shop} aria-label={group.shop}>
-              <h2 className={styles.shopName}>
-                {group.shop}
-                <span className={styles.shopCount}>{group.items.length}品</span>
-              </h2>
-              <ul className={styles.list}>{group.items.map((food) => foodRow(food))}</ul>
-            </section>
-          ))}
+          {shopGroups.map((group) => {
+            // 検索しているときは、見つかったお店を開いておく
+            const open = keyword !== '' || openShops.has(group.shop);
+            return (
+              <section key={group.shop} aria-label={group.shop} className={styles.shop}>
+                <button
+                  type="button"
+                  className={styles.shopHeader}
+                  aria-expanded={open}
+                  onClick={() => toggleShop(group.shop)}
+                >
+                  <span className={styles.shopName}>
+                    {group.shop}
+                    <span className={styles.shopCount}>{group.items.length}品</span>
+                  </span>
+                  <span className={styles.chevron} aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+                {open && (
+                  <>
+                    <ul className={styles.list}>{group.items.map((food) => foodRow(food))}</ul>
+                    <button
+                      type="button"
+                      className={styles.addToShop}
+                      onClick={() => {
+                        setNewMenuShop(group.shop);
+                        setEditing('new-restaurant');
+                      }}
+                    >
+                      ＋ {group.shop}にメニューを追加
+                    </button>
+                  </>
+                )}
+              </section>
+            );
+          })}
         </div>
       ) : (
         <ul className={styles.list}>
@@ -419,7 +461,12 @@ export function FoodsPage() {
         />
       )}
       {editing === 'new-restaurant' && (
-        <FoodFormDialog restaurant onSave={handleSave} onClose={() => setEditing(null)} />
+        <FoodFormDialog
+          restaurant
+          defaultShop={newMenuShop}
+          onSave={handleSave}
+          onClose={() => setEditing(null)}
+        />
       )}
       {editing !== null && editing !== 'new' && editing !== 'new-restaurant' && (
         <FoodFormDialog
