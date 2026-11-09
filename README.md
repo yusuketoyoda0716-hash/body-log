@@ -13,11 +13,13 @@ Googleでログインすると、Claude のチャットで食べたものを伝�
 
 ## スクリーンショット
 
-| 今日の記録 | 食品の検索 | レシピ | チュートリアル |
+| 今日の記録 | 記録画面 | お店でまとめて記録 | お店ごとにまとまる |
 | :---: | :---: | :---: | :---: |
-| ![今日の記録画面。合計と目標との差、外食の「見積もり」の記録](docs/screenshots/today.png) | ![「ごはん」で検索した画面。よく食べるものが上に出る](docs/screenshots/foods-search.png) | ![レシピの編集画面。材料と鍋全体・1食あたりの値](docs/screenshots/recipe.png) | ![チュートリアル。ボタンを光らせて操作を案内](docs/screenshots/tutorial.png) |
-| 推移 | 体重 | Claude連携 | お店でまとめて記録 |
-| ![推移画面。1日平均と日別カロリーのグラフ](docs/screenshots/trends.png) | ![体重画面。推移グラフと履歴](docs/screenshots/body.png) | ![設定のClaude連携。コネクタのつなぎ方](docs/screenshots/claude.png) | ![回転寿司のメニューを−／＋で皿数を入れて、まとめて記録する画面](docs/screenshots/order.png) |
+| ![今日の記録画面。合計と目標との差、見積もりの合計](docs/screenshots/today.png) | ![食事を追加する画面。検索欄と「最近・食材・市販品・外食・レシピ」のタブ](docs/screenshots/entry.png) | ![回転寿司のメニューを−／＋で皿数を入れて、まとめて記録する画面](docs/screenshots/order.png) | ![今日の画面で、回転寿司の記録が1行にまとまり、開くとメニューごとの内訳が出る](docs/screenshots/today-shop.png) |
+| 登録食品 | 食品の登録 | 成分表から登録 | レシピ |
+| ![登録食品の画面。食材・市販品・外食・レシピのタブと、たんぱく質の多い順の並べ替え](docs/screenshots/foods.png) | ![食品を手入力で登録する画面。種類（食材・市販品・外食）とメーカー](docs/screenshots/food-form.png) | ![「ごはん」で検索した画面。よく食べるものが上に出る](docs/screenshots/foods-search.png) | ![レシピの編集画面。材料と鍋全体・1食あたりの値](docs/screenshots/recipe.png) |
+| チュートリアル | 推移 | 体重 | Claude連携 |
+| ![チュートリアル。ボタンを光らせて操作を案内](docs/screenshots/tutorial.png) | ![推移画面。1日平均と日別カロリーのグラフ](docs/screenshots/trends.png) | ![体重画面。推移グラフと履歴](docs/screenshots/body.png) | ![設定のClaude連携。コネクタのつなぎ方](docs/screenshots/claude.png) |
 
 ## 設計（ワイヤーフレーム）
 
