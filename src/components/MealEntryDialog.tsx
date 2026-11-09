@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { quickAmounts } from '../constants/units';
 import type { Food, MealEntry, MealType, Nutrients, Recipe } from '../types';
 import { TutorialHint } from '../tutorial/TutorialHint';
-import { foodCategory, foodLabel, isRestaurantFood } from '../utils/foodLabel';
+import { foodCategory, foodLabel, groupByShop, isRestaurantFood } from '../utils/foodLabel';
 import { searchFoods } from '../utils/foodSearch';
 import {
   MEXT_SOURCE,
@@ -13,6 +13,7 @@ import {
 } from '../utils/mextFoods';
 import { calcNutrients } from '../utils/nutrition';
 import type { searchPopularFoods } from '../utils/popularFoods';
+import { ShopOrder } from './ShopOrder';
 import formStyles from './FoodFormDialog.module.css';
 import styles from './MealEntryDialog.module.css';
 
@@ -25,6 +26,8 @@ type Props = {
   // 最近記録したものの ID（新しい順。食品は food.id、レシピは 'recipe:…'）
   recentIds: string[];
   onSave: (entry: MealEntry) => void;
+  // お店のメニューをまとめて記録する（メニューごとに別々の記録として保存する）
+  onSaveMany: (entries: MealEntry[], shop: string) => Promise<void>;
   // 成分表から選んだ、まだ登録していない食品を登録食品に追加する
   onRegisterFood: (food: Food) => Promise<void>;
   onClose: () => void;
@@ -122,6 +125,7 @@ export function MealEntryDialog({
   recipes,
   recentIds,
   onSave,
+  onSaveMany,
   onRegisterFood,
   onClose,
 }: Props) {
@@ -130,6 +134,9 @@ export function MealEntryDialog({
   // 最近記録したものがあれば「最近」から。毎日同じものを食べることが多いので、たいていここで選べる
   const [tab, setTab] = useState<Tab>(recentIds.length > 0 ? 'recent' : 'ingredient');
   const [selected, setSelected] = useState<Choice | null>(null);
+  // お店を選んで、メニューをまとめて注文している（回転寿司・丸亀製麺など）
+  const [orderShop, setOrderShop] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -160,6 +167,36 @@ export function MealEntryDialog({
   const registered = [...foods.map(foodChoice), ...recipes.map(recipeChoice)];
   const byKey = new Map(registered.map((c) => [c.foodId, c]));
   const recent = recentIds.flatMap((id) => byKey.get(id) ?? []).slice(0, 10);
+  // 外食はお店ごとに選ぶ
+  const shops = groupByShop(foods.filter(isRestaurantFood));
+  const orderMenus = shops.find((g) => g.shop === orderShop)?.items ?? [];
+  const ordered = orderMenus.flatMap((food) => {
+    const count = counts[food.id] ?? 0;
+    return count > 0 ? [{ food, amount: count * food.baseAmount }] : [];
+  });
+  const orderTotal = ordered.reduce(
+    (sum, { food, amount }) => {
+      const n = calcNutrients(food, amount);
+      return {
+        kcal: sum.kcal + n.kcal,
+        protein: sum.protein + n.protein,
+        fat: sum.fat + n.fat,
+        carbs: sum.carbs + n.carbs,
+      };
+    },
+    { kcal: 0, protein: 0, fat: 0, carbs: 0 },
+  );
+  const round = (n: number) => Math.round(n * 10) / 10;
+  // 検索語が店名に入っていれば、そのお店からまとめて選べるようにする
+  const shopHits = keyword
+    ? shops.filter((g) => g.shop.normalize('NFKC').includes(keyword.normalize('NFKC')))
+    : [];
+
+  function openShop(shop: string) {
+    setOrderShop(shop);
+    setCounts({});
+    setError(null);
+  }
 
   // 検索：登録したもの（食品・外食・レシピ）→ よく食べるもの → 成分表 の順に出す
   //   市販品はメーカー名でも見つかるよう、検索するときだけ名前のうしろにメーカーを付ける
@@ -198,8 +235,41 @@ export function MealEntryDialog({
   const preview =
     selected && amount !== '' && amountNumber > 0 ? calcNutrients(selected, amountNumber) : null;
 
+  // お店でまとめて注文したものを、メニューごとの記録にして保存する
+  async function submitOrder() {
+    if (!orderShop) return;
+    if (ordered.length === 0) {
+      setError('食べたメニューの数を入れてください');
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSaveMany(
+        ordered.map(({ food, amount }) => ({
+          id: crypto.randomUUID(),
+          date,
+          mealType,
+          foodId: food.id,
+          foodName: foodLabel(food),
+          unit: food.unit,
+          amount,
+          ...calcNutrients(food, amount),
+          ...(food.estimated ? { estimated: true } : {}),
+        })),
+        orderShop,
+      );
+    } catch {
+      setSaving(false);
+      setError('記録できませんでした。時間をおいてもう一度お試しください');
+    }
+  }
+
   async function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault();
+    if (orderShop) {
+      await submitOrder();
+      return;
+    }
     if (!selected) return;
     if (!preview) {
       setError('量は0より大きい数値を入力してください');
@@ -265,6 +335,21 @@ export function MealEntryDialog({
     </li>
   );
 
+  // お店の1行（押すとメニューをまとめて選ぶ画面へ）
+  const shopRow = (g: { shop: string; items: Food[] }) => (
+    <li key={`shop:${g.shop}`}>
+      <button type="button" className={styles.item} onClick={() => openShop(g.shop)}>
+        <span className={styles.info}>
+          <span className={styles.name}>{g.shop}</span>
+          <span className={styles.sub}>{g.items.length}品から選んでまとめて記録</span>
+        </span>
+        <span className={styles.chevron} aria-hidden="true">
+          ›
+        </span>
+      </button>
+    </li>
+  );
+
   return (
     <dialog
       ref={dialogRef}
@@ -278,7 +363,55 @@ export function MealEntryDialog({
         </h2>
         <TutorialHint dialog="entry" />
 
-        {!selected ? (
+        {orderShop ? (
+          // ---- お店のメニューをまとめて選ぶ ----
+          <>
+            <div className={styles.selected}>
+              <span className={styles.info}>
+                <span className={styles.name}>{orderShop}</span>
+                <span className={styles.sub}>食べたものの数を入れてください</span>
+              </span>
+              <button
+                type="button"
+                className={styles.change}
+                onClick={() => {
+                  setOrderShop(null);
+                  setError(null);
+                }}
+              >
+                選び直す
+              </button>
+            </div>
+            <ShopOrder
+              shop={orderShop}
+              menus={orderMenus}
+              counts={counts}
+              onCount={(id, count) => {
+                setCounts((prev) => ({ ...prev, [id]: Math.max(0, count) }));
+                setError(null);
+              }}
+              onAddMenu={async (food) => {
+                await onRegisterFood(food);
+                setCounts((prev) => ({ ...prev, [food.id]: 1 }));
+              }}
+            />
+            <div className={styles.preview} aria-live="polite">
+              {ordered.length > 0 ? (
+                <>
+                  <span>
+                    <span className={styles.previewKcal}>{Math.round(orderTotal.kcal)} kcal</span>
+                    <span className={styles.previewCount}>{ordered.length}品</span>
+                  </span>
+                  <span>
+                    P{round(orderTotal.protein)} F{round(orderTotal.fat)} C{round(orderTotal.carbs)}
+                  </span>
+                </>
+              ) : (
+                <span>数を入れると合計を計算します</span>
+              )}
+            </div>
+          </>
+        ) : !selected ? (
           // ---- 1. 選ぶ ----
           <>
             <label className={formStyles.field}>
@@ -293,6 +426,12 @@ export function MealEntryDialog({
 
             {keyword ? (
               <div className={styles.results}>
+                {shopHits.length > 0 && (
+                  <section>
+                    <h3 className={styles.heading}>お店のメニューからまとめて選ぶ</h3>
+                    <ul className={styles.list}>{shopHits.map(shopRow)}</ul>
+                  </section>
+                )}
                 {registeredHits.length > 0 && (
                   <section>
                     <h3 className={styles.heading}>登録したもの</h3>
@@ -328,7 +467,15 @@ export function MealEntryDialog({
                     </button>
                   ))}
                 </div>
-                {(() => {
+                {tab === 'restaurant' ? (
+                  shops.length === 0 ? (
+                    <p className={styles.empty}>
+                      まだ外食のメニューがありません。「食品」画面の「外食」タブで登録できます
+                    </p>
+                  ) : (
+                    <ul className={`${styles.list} ${styles.tabList}`}>{shops.map(shopRow)}</ul>
+                  )
+                ) : (() => {
                   const list =
                     tab === 'recent'
                       ? recent
@@ -453,10 +600,16 @@ export function MealEntryDialog({
           <button type="button" className={formStyles.cancel} onClick={onClose}>
             キャンセル
           </button>
-          {selected && (
+          {orderShop ? (
             <button type="submit" className={formStyles.save} disabled={saving}>
-              追加
+              {ordered.length > 0 ? `${ordered.length}品を記録` : 'まとめて記録'}
             </button>
+          ) : (
+            selected && (
+              <button type="submit" className={formStyles.save} disabled={saving}>
+                追加
+              </button>
+            )
           )}
         </div>
       </form>

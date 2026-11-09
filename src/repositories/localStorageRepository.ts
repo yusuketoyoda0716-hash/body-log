@@ -76,6 +76,11 @@ export class LocalStorageRepository implements DataRepository {
     s.entries = upsert(s.entries, entry);
     save(s);
   }
+  async saveEntries(entries: MealEntry[]): Promise<void> {
+    const s = load();
+    for (const entry of entries) s.entries = upsert(s.entries, entry);
+    save(s);
+  }
   async deleteEntry(id: string): Promise<void> {
     const s = load();
     s.entries = s.entries.filter((e) => e.id !== id);

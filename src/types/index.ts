@@ -13,7 +13,7 @@ export type FoodCategory = 'ingredient' | 'product';
 export type Food = Nutrients & {
   id: string;
   name: string;
-  unit: 'g' | '個' | '枚' | '本' | '杯' | '食';
+  unit: 'g' | '個' | '枚' | '本' | '杯' | '皿' | '食';
   baseAmount: number;
   source?: string; // 値の出典（成分表、調べたサイト名や URL など）。自分で入力した食品にはない
   category?: FoodCategory; // 食材か市販品か（外食のメニューには付けない）。ない古いデータは出典から決める

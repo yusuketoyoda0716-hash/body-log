@@ -9,6 +9,7 @@ import {
   query,
   setDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import { app } from '../lib/firebase';
 import type { BodyGoal, BodyRecord, Food, Goals, MealEntry, Recipe } from '../types';
@@ -76,6 +77,12 @@ export class FirestoreRepository implements DataRepository {
   }
   async saveEntry(entry: MealEntry): Promise<void> {
     await setDoc(doc(this.col('entries'), entry.id), entry);
+  }
+  // まとめて1回で書き込む（途中で失敗したら全部書き込まれない）
+  async saveEntries(entries: MealEntry[]): Promise<void> {
+    const batch = writeBatch(db);
+    for (const entry of entries) batch.set(doc(this.col('entries'), entry.id), entry);
+    await batch.commit();
   }
   async deleteEntry(id: string): Promise<void> {
     await deleteDoc(doc(this.col('entries'), id));

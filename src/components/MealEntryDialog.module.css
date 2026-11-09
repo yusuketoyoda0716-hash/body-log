@@ -198,3 +198,103 @@
   font-weight: 700;
   color: var(--color-text);
 }
+
+.previewCount {
+  margin-left: 8px;
+  font-size: 13px;
+}
+
+/* お店の行の右の「›」 */
+.chevron {
+  flex-shrink: 0;
+  font-size: 20px;
+  color: var(--color-muted);
+}
+
+/* ---- お店のメニューをまとめて選ぶ ---- */
+.orderItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 56px;
+  padding: 6px 8px 6px 12px;
+  background: #ffffff;
+}
+
+.orderItem[data-selected='true'] {
+  background: var(--color-active);
+}
+
+/* −  2  ＋ */
+.counter {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+}
+
+.counterButton {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: #ffffff;
+  font-size: 18px;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.counterButton:disabled {
+  color: var(--color-border);
+  cursor: default;
+}
+
+.count {
+  min-width: 24px;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.addMenuButton {
+  height: 44px;
+  border: 1px dashed var(--color-primary);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.addMenu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.addMenuActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.addMenuSave {
+  height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-primary);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.addMenuSave:disabled {
+  opacity: 0.4;
+}

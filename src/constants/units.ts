@@ -1,7 +1,7 @@
 import type { Food } from '../types/index.js';
 
-// 量の単位。食パンは「枚」、バナナやウインナーは「本」で数えられるようにしている
-export const UNITS: Food['unit'][] = ['g', '個', '枚', '本', '杯', '食'];
+// 量の単位。食パンは「枚」、バナナやウインナーは「本」、回転寿司は「皿」で数えられるようにしている
+export const UNITS: Food['unit'][] = ['g', '個', '枚', '本', '杯', '皿', '食'];
 
 // 「1個」「1枚」「1本」のように個数で数える単位
 export type CountUnit = '個' | '枚' | '本';

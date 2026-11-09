@@ -7,6 +7,7 @@ import { useRepository } from '../repositories/repositoryContext';
 import { useTutorial } from '../tutorial/tutorialContext';
 import type { Food, Goals, MealEntry, MealType, Recipe } from '../types';
 import { addDays, formatDateLabel, isDateString, today } from '../utils/date';
+import { groupEntriesByShop, menuName } from '../utils/entryGroups';
 import { sumNutrients } from '../utils/nutrition';
 import styles from './TodayPage.module.css';
 
@@ -27,6 +28,8 @@ export function TodayPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [addingMeal, setAddingMeal] = useState<MealType | null>(null);
   const [goals, setGoals] = useState<Goals | null>(null);
+  // 開いている「お店ごとのまとまり」（'dinner:はま寿司' のように食事区分と店名で持つ）
+  const [openShops, setOpenShops] = useState<Set<string>>(new Set());
   // 最近記録したもの（記録の画面の「最近使ったもの」に出す。新しい順の食品・レシピのID）
   const [recentIds, setRecentIds] = useState<string[]>([]);
 
@@ -81,6 +84,25 @@ export function TodayPage() {
     setSearchParams(next === todayString ? {} : { date: next });
   }
 
+  function toggleShop(key: string) {
+    setOpenShops((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  // お店でまとめて注文したもの → まとめて保存して、そのまとまりを開いた状態にする
+  async function handleAddEntries(list: MealEntry[], shop: string) {
+    if (list.length === 0) return;
+    await repository.saveEntries(list);
+    const { date: entryDate, mealType } = list[0];
+    setLoaded({ date: entryDate, entries: await repository.getEntriesByDate(entryDate) });
+    setOpenShops((prev) => new Set(prev).add(`${mealType}:${shop}`));
+    setAddingMeal(null);
+  }
+
   // 追加 → その日の記録を読み直す → ダイアログを閉じる
   async function handleAddEntry(entry: MealEntry) {
     await repository.saveEntry(entry);
@@ -116,6 +138,40 @@ export function TodayPage() {
     setLoaded({ date: entry.date, entries: nextEntries });
     tutorial.notify('entry-deleted');
   }
+
+  // 記録の1行（名前・量・カロリーと削除ボタン）
+  const entryItem = (entry: MealEntry, name: string) => (
+    <li key={entry.id} className={styles.entry}>
+      <span className={styles.entryName}>
+        {name} {entry.amount}
+        {entry.unit}
+        {entry.estimated && <span className={styles.estimated}>見積もり</span>}
+      </span>
+      <span className={styles.entryRight}>
+        <span className={styles.entryKcal}>{Math.round(entry.kcal)} kcal</span>
+        <button
+          type="button"
+          className={styles.deleteButton}
+          aria-label={`${entry.foodName}を削除`}
+          data-tour={entry.id === tourEntryId ? 'entry-delete' : undefined}
+          onClick={() => handleDeleteEntry(entry)}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      </span>
+    </li>
+  );
 
   const addingLabel = MEAL_TYPES.find((m) => m.type === addingMeal)?.label ?? '';
 
@@ -200,38 +256,43 @@ export function TodayPage() {
                   <p className={styles.empty}>記録なし</p>
                 ) : (
                   <ul className={styles.entryList}>
-                    {items.map((entry) => (
-                      <li key={entry.id} className={styles.entry}>
-                        <span className={styles.entryName}>
-                          {entry.foodName} {entry.amount}
-                          {entry.unit}
-                          {entry.estimated && <span className={styles.estimated}>見積もり</span>}
-                        </span>
-                        <span className={styles.entryRight}>
-                          <span className={styles.entryKcal}>{Math.round(entry.kcal)} kcal</span>
+                    {groupEntriesByShop(items, foods).map((row) => {
+                      if (row.type === 'entry') return entryItem(row.entry, row.entry.foodName);
+                      const key = `${type}:${row.shop}`;
+                      // チュートリアルで光らせる記録が中にあれば、開いておく
+                      const open =
+                        openShops.has(key) || row.entries.some((e) => e.id === tourEntryId);
+                      const estimated = row.entries.some((e) => e.estimated);
+                      return (
+                        <li key={key} className={styles.shopGroup}>
                           <button
                             type="button"
-                            className={styles.deleteButton}
-                            aria-label={`${entry.foodName}を削除`}
-                            data-tour={entry.id === tourEntryId ? 'entry-delete' : undefined}
-                            onClick={() => handleDeleteEntry(entry)}
+                            className={styles.shopHeader}
+                            aria-expanded={open}
+                            onClick={() => toggleShop(key)}
                           >
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              aria-hidden="true"
-                            >
-                              <path d="M6 6l12 12M18 6L6 18" />
-                            </svg>
+                            <span className={styles.entryName}>
+                              {row.shop}
+                              <span className={styles.shopCount}>{row.entries.length}品</span>
+                              {estimated && <span className={styles.estimated}>見積もり</span>}
+                            </span>
+                            <span className={styles.entryRight}>
+                              <span className={styles.entryKcal}>
+                                {Math.round(row.total.kcal)} kcal
+                              </span>
+                              <span className={styles.chevron} aria-hidden="true">
+                                ›
+                              </span>
+                            </span>
                           </button>
-                        </span>
-                      </li>
-                    ))}
+                          {open && (
+                            <ul className={styles.shopItems}>
+                              {row.entries.map((e) => entryItem(e, menuName(e, row.shop)))}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </section>
@@ -249,6 +310,7 @@ export function TodayPage() {
           recipes={recipes}
           recentIds={recentIds}
           onSave={handleAddEntry}
+          onSaveMany={handleAddEntries}
           onRegisterFood={handleRegisterFood}
           onClose={closeAddDialog}
         />

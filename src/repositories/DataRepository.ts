@@ -15,6 +15,7 @@ export interface DataRepository {
   getEntriesByDate(date: string): Promise<MealEntry[]>;
   getEntriesInRange(from: string, to: string): Promise<MealEntry[]>; // 週平均用
   saveEntry(entry: MealEntry): Promise<void>;
+  saveEntries(entries: MealEntry[]): Promise<void>; // まとめて記録（お店でまとめて注文したときなど）
   deleteEntry(id: string): Promise<void>;
 
   // 食事の目標
