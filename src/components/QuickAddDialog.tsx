@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { MEAL_TYPES, mealTypeNow } from '../constants/meals';
+import { quickAmounts } from '../constants/units';
 import type { Food, MealEntry, MealType, Nutrients } from '../types';
 import { formatDateLabel, today } from '../utils/date';
 import { calcNutrients } from '../utils/nutrition';
@@ -100,14 +101,30 @@ export function QuickAddDialog({ target, onSave, onClose }: Props) {
             onChange={(e) => setAmount(e.target.value)}
           />
         </label>
+        <div className={entryStyles.quick} role="group" aria-label="よく使う量">
+          {quickAmounts(target.unit).map((n) => (
+            <button
+              key={n}
+              type="button"
+              className={entryStyles.quickButton}
+              aria-pressed={amountNumber === n}
+              onClick={() => setAmount(String(n))}
+            >
+              {n}
+              {target.unit}
+            </button>
+          ))}
+        </div>
         {target.unit === '食' && (
-          <p className={formStyles.hint}>1食分で計算しています。半分なら 0.5 のように入れてください</p>
+          <p className={formStyles.hint}>
+            1食分で計算しています。半分なら 0.5 のように入れてください
+          </p>
         )}
 
         <div className={entryStyles.preview} aria-live="polite">
           {preview ? (
             <>
-              <span className={entryStyles.kcal}>{Math.round(preview.kcal)} kcal</span>
+              <span className={entryStyles.previewKcal}>{Math.round(preview.kcal)} kcal</span>
               <span>
                 P{preview.protein} F{preview.fat} C{preview.carbs}
               </span>

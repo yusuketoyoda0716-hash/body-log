@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { UNITS } from '../constants/units';
 import type { Food, RecipeIngredient } from '../types';
 import { isRestaurantFood } from '../utils/foodLabel';
 import { searchFoods } from '../utils/foodSearch';
@@ -8,7 +9,6 @@ import { MextFoodSearch } from './MextFoodSearch';
 import styles from './IngredientPicker.module.css';
 import listStyles from './MextFoodSearch.module.css';
 
-const UNITS: Food['unit'][] = ['g', '個', '杯', '食'];
 
 type Mode = 'registered' | 'mext' | 'manual';
 

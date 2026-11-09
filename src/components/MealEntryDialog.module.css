@@ -1,3 +1,163 @@
+/* 検索結果・最近使ったもの・タブの一覧をまとめる */
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.results section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+
+.empty {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+/* 一覧が長くてもダイアログが伸びすぎないように、一覧の中だけスクロールさせる */
+.list {
+  max-height: 240px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.tabList {
+  max-height: min(360px, 50vh);
+}
+
+/* 最近・食品・外食・レシピの4つに分ける */
+.tabs4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.list li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+/* 1行全体を押しやすいボタンにする */
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: none;
+  background: #ffffff;
+  text-align: left;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--color-surface);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.kcal {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* 見積もりの値の外食メニュー */
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--color-fat);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 18px;
+  color: #a6431a;
+  white-space: nowrap;
+}
+
+/* 選んだもの（量を入れる画面の上） */
+.selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-active);
+}
+
+.change {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-primary);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* よく使う量のボタン */
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: -6px;
+}
+
+.quickButton {
+  min-width: 56px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: #ffffff;
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.quickButton[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  background: var(--color-active);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 .preview {
   display: flex;
   align-items: baseline;
@@ -10,7 +170,7 @@
   color: var(--color-muted);
 }
 
-.kcal {
+.previewKcal {
   font-size: 18px;
   font-weight: 700;
   color: var(--color-text);

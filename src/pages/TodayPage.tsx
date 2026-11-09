@@ -27,6 +27,8 @@ export function TodayPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [addingMeal, setAddingMeal] = useState<MealType | null>(null);
   const [goals, setGoals] = useState<Goals | null>(null);
+  // 最近記録したもの（記録の画面の「最近使ったもの」に出す。新しい順の食品・レシピのID）
+  const [recentIds, setRecentIds] = useState<string[]>([]);
 
   // その日の記録を読み込む
   useEffect(() => {
@@ -44,6 +46,23 @@ export function TodayPage() {
     repository.getFoods().then(setFoods);
     repository.getRecipes().then(setRecipes);
   }, [repository]);
+
+  // 直近30日の記録から、最近使った食品・レシピを新しい順に並べる（同じものは1回だけ）
+  useEffect(() => {
+    let ignore = false;
+    const end = today();
+    repository.getEntriesInRange(addDays(end, -30), end).then((recentEntries) => {
+      if (ignore) return;
+      const ids = [...recentEntries]
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .map((entry) => entry.foodId)
+        .filter((id) => id !== 'custom');
+      setRecentIds([...new Set(ids)]);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [repository, loaded]);
 
   // 目標を読み込む
   useEffect(() => {
@@ -69,6 +88,12 @@ export function TodayPage() {
     setLoaded({ date: entry.date, entries: nextEntries });
     setAddingMeal(null);
     tutorial.notify('entry-added', entry.id);
+  }
+
+  // 記録の画面で成分表から選んだ食品を、登録食品にも追加する
+  async function handleRegisterFood(food: Food) {
+    await repository.saveFood(food);
+    setFoods(await repository.getFoods());
   }
 
   function openAddDialog(type: MealType) {
@@ -111,7 +136,11 @@ export function TodayPage() {
           {isToday ? (
             <span className={styles.todayBadge}>今日</span>
           ) : (
-            <button type="button" className={styles.backToday} onClick={() => changeDate(todayString)}>
+            <button
+              type="button"
+              className={styles.backToday}
+              onClick={() => changeDate(todayString)}
+            >
               今日に戻る
             </button>
           )}
@@ -134,7 +163,8 @@ export function TodayPage() {
           {estimatedEntries.length > 0 && (
             <p className={styles.estimatedNote}>
               うち見積もり {Math.round(sumNutrients(estimatedEntries).kcal)} kcal（
-              {estimatedEntries.length}件）。外食や写真から見積もった値は、実際と差が出ることがあります
+              {estimatedEntries.length}
+              件）。外食や写真から見積もった値は、実際と差が出ることがあります
             </p>
           )}
         </div>
@@ -217,7 +247,9 @@ export function TodayPage() {
           mealLabel={addingLabel}
           foods={foods}
           recipes={recipes}
+          recentIds={recentIds}
           onSave={handleAddEntry}
+          onRegisterFood={handleRegisterFood}
           onClose={closeAddDialog}
         />
       )}

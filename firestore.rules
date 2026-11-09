@@ -33,7 +33,7 @@ service cloud.firestore {
     }
 
     function isUnit(v) {
-      return v in ['g', '個', '杯', '食'];
+      return v in ['g', '個', '枚', '本', '杯', '食'];
     }
 
     // カロリー・PFC

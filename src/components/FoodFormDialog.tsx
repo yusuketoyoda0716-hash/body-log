@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { COUNT_UNITS, UNITS, type CountUnit } from '../constants/units';
 import type { Food, Nutrients } from '../types';
 import { calcNutrients } from '../utils/nutrition';
 import { MEXT_SOURCE, displayName, pickedName, type MextFood } from '../utils/mextFoods';
 import { TutorialHint } from '../tutorial/TutorialHint';
 import { MextFoodSearch } from './MextFoodSearch';
 import styles from './FoodFormDialog.module.css';
-
-const UNITS: Food['unit'][] = ['g', '個', '杯', '食'];
 
 // 入力中の値。input の中身は文字列なので、保存するときに数値へ変換する
 type FormValues = {
@@ -127,6 +126,16 @@ export function FoodFormDialog({
   const [reference, setReference] = useState<Reference | null>(() =>
     initialFood ? { baseAmount: initialFood.baseAmount, nutrients: initialFood } : null,
   );
+  // グラムあたりのもとの値（成分表から選んだとき・g で登録した食品を編集するとき）
+  //   これがあると「1個あたりで登録」を選べる。1個の重さから1個分の値を計算する
+  const [gramRef, setGramRef] = useState<Reference | null>(() =>
+    initialFood?.unit === 'g'
+      ? { baseAmount: initialFood.baseAmount, nutrients: initialFood }
+      : null,
+  );
+  // 1個あたりで登録するときの、1個の重さ（g）
+  const [pieceGrams, setPieceGrams] = useState('');
+  const byPiece = gramRef !== null && values.unit !== 'g';
 
   // 画面に出たらダイアログを開く
   useEffect(() => {
@@ -161,6 +170,46 @@ export function FoodFormDialog({
     }));
   }
 
+  // 1個の重さ（g）から、1個分のカロリーとPFCを計算して入れる
+  function applyPiece(unit: Food['unit'], gramsText: string) {
+    setPieceGrams(gramsText);
+    const grams = Number(gramsText);
+    const next =
+      gramRef && gramsText !== '' && grams > 0
+        ? calcNutrients({ ...gramRef.nutrients, baseAmount: gramRef.baseAmount }, grams)
+        : null;
+    setValues((prev) => ({
+      ...prev,
+      unit,
+      baseAmount: '1',
+      kcal: next ? String(next.kcal) : '',
+      protein: next ? String(next.protein) : '',
+      fat: next ? String(next.fat) : '',
+      carbs: next ? String(next.carbs) : '',
+    }));
+    setReference(next ? { baseAmount: 1, nutrients: next } : null);
+  }
+
+  // 「100gあたり」と「1個あたり」を切り替える
+  function changeMeasure(nextByPiece: boolean) {
+    if (!gramRef) return;
+    if (nextByPiece) {
+      const piece = picked?.piece;
+      applyPiece(piece?.unit ?? '個', piece ? String(piece.grams) : '');
+      return;
+    }
+    setValues((prev) => ({
+      ...prev,
+      unit: 'g',
+      baseAmount: String(gramRef.baseAmount),
+      kcal: String(gramRef.nutrients.kcal),
+      protein: String(gramRef.nutrients.protein),
+      fat: String(gramRef.nutrients.fat),
+      carbs: String(gramRef.nutrients.carbs),
+    }));
+    setReference(gramRef);
+  }
+
   // カロリーやPFCを手で直したら、その値を新しい「もとの値」にする
   function updateNutrient(key: keyof Nutrients, text: string) {
     const next = { ...values, [key]: text };
@@ -172,27 +221,38 @@ export function FoodFormDialog({
   }
 
   // 成分表の食品を選んだら、100gあたりの値を入力欄に入れて「自分で入力」に切り替える
+  //   卵やパンのように1個で数えることが多いものは、最初から「1個あたり」にする
   function handleSelect(food: MextFood) {
+    const piece = food.piece;
+    const values100 = piece ? calcNutrients({ ...food, baseAmount: 100 }, piece.grams) : food;
     setValues((prev) => ({
       // 店名は入れたままにする（外食のメニューを成分表の料理から登録するとき）
       shop: prev.shop,
       estimated: false,
       name: pickedName(food),
-      unit: 'g',
-      baseAmount: '100',
-      kcal: String(food.kcal),
-      protein: String(food.protein),
-      fat: String(food.fat),
-      carbs: String(food.carbs),
+      unit: piece ? piece.unit : 'g',
+      baseAmount: piece ? '1' : '100',
+      kcal: String(values100.kcal),
+      protein: String(values100.protein),
+      fat: String(values100.fat),
+      carbs: String(values100.carbs),
     }));
     setPicked(food);
-    setReference({ baseAmount: 100, nutrients: food });
+    setReference(
+      piece ? { baseAmount: 1, nutrients: values100 } : { baseAmount: 100, nutrients: food },
+    );
+    setGramRef({ baseAmount: 100, nutrients: food });
+    setPieceGrams(piece ? String(piece.grams) : '');
     setError(null);
     setMode('manual');
   }
 
   function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault(); // ページの再読み込みを止める
+    if (byPiece && !(Number(pieceGrams) > 0)) {
+      setError(`1${values.unit}の重さ（g）を入力してください`);
+      return;
+    }
     const message = validate(values, restaurant);
     if (message) {
       setError(message);
@@ -200,11 +260,17 @@ export function FoodFormDialog({
     }
     // 出典：成分表から選んだときは成分表。編集のときは、もとの出典を残す
     // 2つを混ぜて計算した値（麦ごはんなど）は、計算のしかたも出典に残す
+    //   1個あたりで登録したときは、1個を何gとして計算したかも残す
+    const basis = [picked?.basis, byPiece ? `1${values.unit}＝${pieceGrams}gとして計算` : null]
+      .filter(Boolean)
+      .join('、');
     const source = picked
-      ? picked.basis
-        ? `${MEXT_SOURCE}をもとに計算（${picked.basis}）`
+      ? basis
+        ? `${MEXT_SOURCE}をもとに計算（${basis}）`
         : MEXT_SOURCE
-      : initialFood?.source;
+      : byPiece && initialFood?.source
+        ? `${initialFood.source}（${basis}）`
+        : initialFood?.source;
     onSave({
       // Firestore は undefined の項目を保存できないので、出典があるときだけ入れる
       ...(source ? { source } : {}),
@@ -313,42 +379,109 @@ export function FoodFormDialog({
               </label>
             )}
 
-            <div className={styles.row}>
-              <label className={styles.field}>
-                基準量
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  min="0"
-                  step="any"
-                  value={values.baseAmount}
-                  onChange={(e) => updateBaseAmount(e.target.value)}
-                />
-              </label>
-              <label className={styles.field}>
-                単位
-                <select
-                  value={values.unit}
-                  onChange={(e) => {
-                    update('unit', e.target.value as Food['unit']);
-                    // 単位が変わると「何倍」が決められないので、量からの計算はやめる
-                    setReference(null);
-                  }}
+            {/* 何あたりの値で登録するか */}
+            <p className={styles.sectionTitle}>何あたりの値で登録しますか？</p>
+            {gramRef && (
+              <div className={styles.tabs} role="group" aria-label="何あたりで登録するか">
+                <button
+                  type="button"
+                  className={styles.tab}
+                  aria-pressed={!byPiece}
+                  onClick={() => changeMeasure(false)}
                 >
-                  {UNITS.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <p className={styles.hint}>
-              {reference
-                ? '量を変えると、カロリーとPFCも同じ割合で計算し直します（例：100g → 300g で3倍）'
-                : 'この量あたりの栄養素を入力します（例：100g あたり、1袋 あたり）'}
-            </p>
+                  グラムで量る
+                </button>
+                <button
+                  type="button"
+                  className={styles.tab}
+                  aria-pressed={byPiece}
+                  onClick={() => changeMeasure(true)}
+                >
+                  1個・1枚・1本で数える
+                </button>
+              </div>
+            )}
 
+            {byPiece ? (
+              <>
+                <div className={styles.row}>
+                  <label className={styles.field}>
+                    1つの重さ（g）
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="any"
+                      placeholder="例：50"
+                      value={pieceGrams}
+                      onChange={(e) => applyPiece(values.unit, e.target.value)}
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    数え方
+                    <select
+                      value={values.unit}
+                      onChange={(e) => applyPiece(e.target.value as CountUnit, pieceGrams)}
+                    >
+                      {COUNT_UNITS.map((unit) => (
+                        <option key={unit} value={unit}>
+                          {unit}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <p className={styles.hint}>
+                  {picked?.piece
+                    ? `目安：${picked.piece.note}。買っているものに合わせて変えられます`
+                    : '1つの重さを入れると、1つ分のカロリーとPFCを計算します'}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className={styles.row}>
+                  <label className={styles.field}>
+                    量
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="any"
+                      value={values.baseAmount}
+                      onChange={(e) => updateBaseAmount(e.target.value)}
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    単位
+                    <select
+                      value={values.unit}
+                      disabled={gramRef !== null}
+                      onChange={(e) => {
+                        update('unit', e.target.value as Food['unit']);
+                        // 単位が変わると「何倍」が決められないので、量からの計算はやめる
+                        setReference(null);
+                      }}
+                    >
+                      {UNITS.map((unit) => (
+                        <option key={unit} value={unit}>
+                          {unit}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <p className={styles.hint}>
+                  {reference
+                    ? '量を変えると、カロリーとPFCも同じ割合で計算し直します（例：100g → 300g で3倍）'
+                    : 'パッケージなどに書いてある「この量あたり」を入れます（例：100g、1袋、1個）'}
+                </p>
+              </>
+            )}
+
+            <p className={styles.sectionTitle}>
+              カロリー・PFC（{values.baseAmount || '?'}
+              {values.unit}あたり）
+            </p>
             <div className={styles.grid}>
               {nutrientFields.map((field) => (
                 <label key={field.key} className={styles.field}>

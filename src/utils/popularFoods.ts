@@ -1,6 +1,6 @@
 import { searchFoods } from './foodSearch';
 import { round1 } from './nutrition';
-import type { MextFood } from './mextFoods';
+import type { MextFood, Piece } from './mextFoods';
 
 // よく食べるものを、成分表の名前ではなく分かりやすい名前で上に出すための一覧
 //   keywords：この言葉で検索したときに出す
@@ -562,6 +562,43 @@ export const POPULAR_FOODS: PopularFood[] = [
   food('フライドポテト', '02020', [...DISH, 'フライドポテト', 'ポテト']),
 ];
 
+// 1個・1枚・1本で数えることが多いものの、1つあたりの重さの目安（可食部）
+//   成分表は100gあたりの値なので、卵のように「1個」で記録したいものはこの重さで1個分を計算する
+//   大きさは商品によって違うので、登録するときに重さを変えられるようにしている
+export const PIECES: Record<string, Piece> = {
+  '卵（生）': { unit: '個', grams: 50, note: 'Mサイズ1個（殻を除いて約50g）' },
+  ゆで卵: { unit: '個', grams: 50, note: 'Mサイズ1個（殻を除いて約50g）' },
+  食パン: { unit: '枚', grams: 60, note: '6枚切り1枚（約60g）' },
+  'トースト（食パンを焼いたもの）': {
+    unit: '枚',
+    grams: 55,
+    note: '6枚切り1枚を焼いたもの（約55g）',
+  },
+  ロールパン: { unit: '個', grams: 30, note: '1個（約30g）' },
+  コッペパン: { unit: '個', grams: 80, note: '1個（約80g）' },
+  クロワッサン: { unit: '個', grams: 40, note: '1個（約40g）' },
+  ベーグル: { unit: '個', grams: 90, note: '1個（約90g）' },
+  イングリッシュマフィン: { unit: '個', grams: 65, note: '1個（約65g）' },
+  'あんパン（こしあん）': { unit: '個', grams: 100, note: '1個（約100g）' },
+  'あんパン（つぶあん）': { unit: '個', grams: 100, note: '1個（約100g）' },
+  クリームパン: { unit: '個', grams: 100, note: '1個（約100g）' },
+  メロンパン: { unit: '個', grams: 100, note: '1個（約100g）' },
+  ドーナツ: { unit: '個', grams: 60, note: '1個（約60g）' },
+  肉まん: { unit: '個', grams: 100, note: '1個（約100g）' },
+  '大福（こしあん）': { unit: '個', grams: 70, note: '1個（約70g）' },
+  'どら焼き（つぶあん）': { unit: '個', grams: 90, note: '1個（約90g）' },
+  バナナ: { unit: '本', grams: 100, note: '1本（皮を除いて約100g）' },
+  りんご: { unit: '個', grams: 250, note: '1個（皮と芯を除いて約250g）' },
+  みかん: { unit: '個', grams: 80, note: '1個（皮を除いて約80g）' },
+  キウイ: { unit: '個', grams: 85, note: '1個（皮を除いて約85g）' },
+  納豆: { unit: '個', grams: 45, note: '1パック（約45g）' },
+  ひきわり納豆: { unit: '個', grams: 45, note: '1パック（約45g）' },
+  ウインナー: { unit: '本', grams: 20, note: '1本（約20g）' },
+  ロースハム: { unit: '枚', grams: 10, note: '1枚（約10g）' },
+  プロセスチーズ: { unit: '個', grams: 18, note: '6Pチーズ1個・スライス1枚（約18g）' },
+  ちくわ: { unit: '本', grams: 30, note: '1本（約30g）' },
+  'ししゃも（焼き）': { unit: '本', grams: 20, note: '1尾（約20g）' },
+};
 
 // 検索語に合う「よく食べるもの」を、成分表の値（混ぜるものは計算した値）にして返す
 //   1つの食品なら code は成分表の食品番号のまま、混ぜたものは '01088+01170' のようにつなぐ
@@ -587,6 +624,7 @@ export function searchPopularFoods(mextFoods: MextFood[], query: string): MextFo
       name: item.parts.length === 1 ? parts[0].food!.name : item.label,
       label: item.label,
       ...(item.basis ? { basis: item.basis } : {}),
+      ...(PIECES[item.label] ? { piece: PIECES[item.label] } : {}),
       kcal: sum('kcal'),
       protein: sum('protein'),
       fat: sum('fat'),

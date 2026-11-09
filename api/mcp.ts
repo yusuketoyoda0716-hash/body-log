@@ -137,7 +137,7 @@ const mealTypeSchema = z
     'breakfast=朝食 / lunch=昼食 / dinner=夕食 / snack=間食。省略すると今の時間帯から決める（間食にはならない）',
   );
 
-const unitSchema = z.enum(['g', '個', '杯', '食']);
+const unitSchema = z.enum(['g', '個', '枚', '本', '杯', '食']);
 const amountSchema = z.number().positive();
 const nutrientSchema = z.number().min(0);
 const sourceSchema = z
@@ -268,6 +268,7 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
 
 食品を登録・修正するとき（「プロテインの値はこれ」「この商品を登録して」など）：
 - save_food を使う。同じ名前の食品があれば上書きされる
+- 卵・パン・バナナ・ウインナーなど、ふつう個数で数えるものは unit を 個・枚・本 にして、baseAmount 1（1つあたり）で登録する。成分表（100gあたり）の値から、1つの重さ（卵Mサイズ 約50g、食パン6枚切り 約60g、バナナ 約100g など）で1つ分を計算し、valueSource に「1個＝50gとして計算」のように書く
 
 料理を作ったとき（「カレーを4食分作った。材料は…」など）：
 1. 材料ごとに search_food で探し、save_recipe で登録する（材料の量はグラムが基本。servings は何食分か）
@@ -301,7 +302,7 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
 - パッケージや栄養成分表示の写真：書かれている値を読み取り、save_food で登録してから記録する。valueSource には「パッケージの栄養成分表示」のように書く
 
 すでに計算済みの記録（過去のチャットなど）を取り込むときは、source を custom にして、書かれている値をそのまま記録する。
-「何個」「何杯」で、成分表（グラム）しか候補がないときは、グラム数を見積もってよいが、見積もったことをユーザーに伝える。`;
+「何個」「何枚」「何本」「何杯」で、成分表（グラム）しか候補がないときは、1つの重さの目安からグラム数にして記録してよいが、何gとして計算したかをユーザーに伝える。`;
 
 // ---- MCP サーバー本体（リクエストごとに、その人用に作る） ----
 
@@ -397,7 +398,7 @@ function createServer(uid: string) {
   }
 
   const server = new McpServer(
-    { name: 'body-log', version: '1.6.0' },
+    { name: 'body-log', version: '1.7.0' },
     { instructions: INSTRUCTIONS },
   );
 

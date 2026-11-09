@@ -165,3 +165,16 @@
   flex-shrink: 0;
   accent-color: var(--color-primary);
 }
+
+/* 入力の区切りの見出し（何あたりで登録するか・カロリーとPFC） */
+.sectionTitle {
+  margin: 4px 0 -6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.field select:disabled {
+  background: var(--color-surface);
+  color: var(--color-muted);
+}

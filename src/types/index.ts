@@ -9,7 +9,7 @@ export type Nutrients = {
 export type Food = Nutrients & {
   id: string;
   name: string;
-  unit: 'g' | '個' | '杯' | '食';
+  unit: 'g' | '個' | '枚' | '本' | '杯' | '食';
   baseAmount: number;
   source?: string; // 値の出典（成分表、調べたサイト名や URL など）。自分で入力した食品にはない
   shop?: string; // 外食のメニューなら店名（例：サイゼリヤ）。あると「外食」タブに出る

@@ -7,7 +7,11 @@ export type MextFood = Nutrients & {
   name: string; // 成分表の食品名（例：＜魚類＞ （かつお類） かつお 秋獲り 生）
   label?: string; // 「よく食べるもの」から選んだときの分かりやすい名前（例：白米ごはん）
   basis?: string; // 2つを混ぜて計算した値のときの説明（例：白米ごはん7：押麦ごはん3の重さで計算）
+  piece?: Piece; // 「1個」「1枚」で数えることが多いものの、1つあたりの重さの目安
 };
+
+// 1個・1枚・1本あたりの重さの目安（例：卵 Mサイズ1個 約50g）
+export type Piece = { unit: '個' | '枚' | '本'; grams: number; note: string };
 
 // 登録するときの名前：「よく食べるもの」なら分かりやすい名前、それ以外は成分表の名前を整えたもの
 export function pickedName(food: MextFood): string {
