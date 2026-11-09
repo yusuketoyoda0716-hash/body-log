@@ -102,26 +102,38 @@
 
 /* 「食品」「レシピ」の切り替え */
 .tabs {
+  /* 食材・市販品・外食・レシピの4つを1行に並べる、セグメント型の切り替え */
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
   margin-bottom: 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  overflow: hidden;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--color-surface);
 }
 
 .tab {
-  height: 40px;
+  height: 36px;
   border: none;
-  background: var(--color-bg);
+  border-radius: 8px;
+  background: transparent;
   font-size: 14px;
+  color: var(--color-muted);
   cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.tab:hover {
+  color: var(--color-text);
 }
 
 .tab[aria-pressed='true'] {
-  background: var(--color-primary);
-  color: #ffffff;
+  background: var(--color-bg);
+  color: var(--color-primary);
   font-weight: 700;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
 }
 
 /* 食品の値の出典（長い URL でも折り返す） */
@@ -148,6 +160,15 @@
   flex-shrink: 0;
   color: var(--color-primary);
   font-weight: 700;
+}
+
+button.noticeLink {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* 外食：お店ごとのまとまり */
@@ -184,4 +205,49 @@
   color: #a6431a;
   vertical-align: 1px;
   white-space: nowrap;
+}
+
+/* 並べ替え（名前順・たんぱく質・脂質・炭水化物・カロリー） */
+.sortRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+
+.sortLabel {
+  margin-right: 2px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+.sortChip {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-bg);
+  font-size: 13px;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.sortChip[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  background: var(--color-active);
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
+.sortNote {
+  margin: -6px 0 12px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+/* 並べ替えに使っている栄養素 */
+.sorted {
+  font-weight: 700;
+  color: var(--color-primary);
 }

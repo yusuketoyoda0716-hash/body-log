@@ -6,13 +6,19 @@ export type Nutrients = {
 };
 
 // 登録食品：baseAmount あたりの栄養素を持つ（例：100gあたり、1個あたり）
+// 食材：肉・魚・野菜・ごはんなど素材そのもの（成分表から登録するもの）
+// 市販品：冷凍食品・総菜・コンビニ商品・お菓子など、パッケージに栄養成分が書いてある商品
+export type FoodCategory = 'ingredient' | 'product';
+
 export type Food = Nutrients & {
   id: string;
   name: string;
   unit: 'g' | '個' | '枚' | '本' | '杯' | '食';
   baseAmount: number;
   source?: string; // 値の出典（成分表、調べたサイト名や URL など）。自分で入力した食品にはない
+  category?: FoodCategory; // 食材か市販品か（外食のメニューには付けない）。ない古いデータは出典から決める
   shop?: string; // 外食のメニューなら店名（例：サイゼリヤ）。あると「外食」タブに出る
+  brand?: string; // 市販品のメーカー・ブランド・買ったお店（例：ニチレイ、セブン-イレブン）
   estimated?: boolean; // 公式の値ではなく、見積もった値のメニュー（外食で、形が決まった料理だけ残す）
 };
 

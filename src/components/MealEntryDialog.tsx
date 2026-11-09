@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { quickAmounts } from '../constants/units';
 import type { Food, MealEntry, MealType, Nutrients, Recipe } from '../types';
 import { TutorialHint } from '../tutorial/TutorialHint';
-import { foodLabel, isRestaurantFood } from '../utils/foodLabel';
+import { foodCategory, foodLabel, isRestaurantFood } from '../utils/foodLabel';
 import { searchFoods } from '../utils/foodSearch';
 import {
   MEXT_SOURCE,
@@ -37,15 +37,17 @@ type Choice = Nutrients & {
   name: string;
   unit: Food['unit'];
   baseAmount: number;
-  kind: 'food' | 'restaurant' | 'recipe' | 'mext';
+  kind: 'ingredient' | 'product' | 'restaurant' | 'recipe' | 'mext';
   estimated?: boolean; // 見積もりの値の外食メニュー
+  brand?: string; // 市販品のメーカー（一覧に小さく出す。メーカー名でも検索できる）
   mext?: MextFood; // 成分表・よく食べるものから選んだとき（まだ登録していない）
 };
 
-type Tab = 'recent' | 'food' | 'restaurant' | 'recipe';
+type Tab = 'recent' | 'ingredient' | 'product' | 'restaurant' | 'recipe';
 const TABS: { tab: Tab; label: string }[] = [
   { tab: 'recent', label: '最近' },
-  { tab: 'food', label: '食品' },
+  { tab: 'ingredient', label: '食材' },
+  { tab: 'product', label: '市販品' },
   { tab: 'restaurant', label: '外食' },
   { tab: 'recipe', label: 'レシピ' },
 ];
@@ -56,7 +58,7 @@ function foodChoice(f: Food): Choice {
     key: `food:${f.id}`,
     foodId: f.id,
     name: foodLabel(f),
-    kind: isRestaurantFood(f) ? 'restaurant' : 'food',
+    kind: isRestaurantFood(f) ? 'restaurant' : foodCategory(f),
   };
 }
 
@@ -126,7 +128,7 @@ export function MealEntryDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [query, setQuery] = useState('');
   // 最近記録したものがあれば「最近」から。毎日同じものを食べることが多いので、たいていここで選べる
-  const [tab, setTab] = useState<Tab>(recentIds.length > 0 ? 'recent' : 'food');
+  const [tab, setTab] = useState<Tab>(recentIds.length > 0 ? 'recent' : 'ingredient');
   const [selected, setSelected] = useState<Choice | null>(null);
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +146,11 @@ export function MealEntryDialog({
     if (keyword === '' || mextData) return;
     let ignore = false;
     Promise.all([loadMextFoods(), import('../utils/popularFoods')]).then(([mextFoods, m]) => {
-      if (!ignore) setMextData({ foods: mextFoods, searchPopular: m.searchPopularFoods });
+      if (!ignore)
+        setMextData({
+          foods: mextFoods,
+          searchPopular: m.searchPopularFoods,
+        });
     });
     return () => {
       ignore = true;
@@ -156,7 +162,18 @@ export function MealEntryDialog({
   const recent = recentIds.flatMap((id) => byKey.get(id) ?? []).slice(0, 10);
 
   // 検索：登録したもの（食品・外食・レシピ）→ よく食べるもの → 成分表 の順に出す
-  const registeredHits = keyword ? searchFoods(registered, keyword, 30) : [];
+  //   市販品はメーカー名でも見つかるよう、検索するときだけ名前のうしろにメーカーを付ける
+  const registeredHits = keyword
+    ? searchFoods(
+        registered.map((c) => ({
+          ...c,
+          name: c.brand ? `${c.name} ${c.brand}` : c.name,
+          original: c,
+        })),
+        keyword,
+        30,
+      ).map((hit) => hit.original)
+    : [];
   const mextHits: Choice[] = (() => {
     if (!keyword || !mextData) return [];
     const popular = mextData.searchPopular(mextData.foods, keyword);
@@ -205,6 +222,7 @@ export function MealEntryDialog({
         fat: selected.fat,
         carbs: selected.carbs,
         source: basis ? `${MEXT_SOURCE}をもとに計算（${basis}）` : MEXT_SOURCE,
+        category: 'ingredient',
       };
       try {
         await onRegisterFood(food);
@@ -237,6 +255,7 @@ export function MealEntryDialog({
             {c.estimated && <span className={styles.badge}>見積もり</span>}
           </span>
           <span className={styles.sub}>
+            {c.brand && `${c.brand}・`}
             {perText(c)}
             {c.mext?.piece && c.unit !== 'g' ? `・${c.mext.piece.note}` : ''}
           </span>
@@ -296,16 +315,12 @@ export function MealEntryDialog({
               </div>
             ) : (
               <div className={styles.results}>
-                <div
-                  className={`${formStyles.tabs} ${styles.tabs4}`}
-                  role="group"
-                  aria-label="一覧の切り替え"
-                >
+                <div className={styles.segment} role="group" aria-label="一覧の切り替え">
                   {TABS.map((t) => (
                     <button
                       key={t.tab}
                       type="button"
-                      className={formStyles.tab}
+                      className={styles.segmentButton}
                       aria-pressed={tab === t.tab}
                       onClick={() => setTab(t.tab)}
                     >

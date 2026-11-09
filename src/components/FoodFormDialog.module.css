@@ -178,3 +178,38 @@
   background: var(--color-surface);
   color: var(--color-muted);
 }
+
+/* 種類の切り替え（食材・市販品）の補足 */
+.tabNote {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+.tabs:has(.tabNote) .tab {
+  height: 48px;
+}
+
+/* 種類（食材・市販品・外食）の切り替え。編集のときに変えると、そのタブへ移る */
+.kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.kinds .tab {
+  height: 48px;
+  padding: 0 2px;
+}
+
+.kinds .tab + .tab {
+  border-left: 1px solid var(--color-border);
+}
+
+.fieldNote {
+  font-size: 11px;
+  color: var(--color-primary);
+}

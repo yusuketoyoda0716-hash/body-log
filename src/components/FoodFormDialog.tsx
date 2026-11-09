@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { COUNT_UNITS, UNITS, type CountUnit } from '../constants/units';
-import type { Food, Nutrients } from '../types';
+import type { Food, FoodCategory, Nutrients } from '../types';
+import { KIND_LABELS, foodKind, type FoodKind } from '../utils/foodLabel';
 import { calcNutrients } from '../utils/nutrition';
 import { MEXT_SOURCE, displayName, pickedName, type MextFood } from '../utils/mextFoods';
 import { TutorialHint } from '../tutorial/TutorialHint';
@@ -11,6 +12,7 @@ import styles from './FoodFormDialog.module.css';
 type FormValues = {
   name: string;
   shop: string; // 外食のときの店名（食品なら空）
+  brand: string; // 市販品のメーカー・ブランド（なければ空）
   estimated: boolean; // 外食で、公式の値ではなく見積もった値のとき
   unit: Food['unit'];
   baseAmount: string;
@@ -23,6 +25,7 @@ type FormValues = {
 const emptyValues: FormValues = {
   name: '',
   shop: '',
+  brand: '',
   estimated: false,
   unit: 'g',
   baseAmount: '100',
@@ -43,6 +46,7 @@ function toFormValues(food: Food): FormValues {
   return {
     name: food.name,
     shop: food.shop ?? '',
+    brand: food.brand ?? '',
     estimated: Boolean(food.estimated),
     unit: food.unit,
     baseAmount: String(food.baseAmount),
@@ -84,6 +88,13 @@ function validate(v: FormValues, requireShop: boolean): string | null {
   return null;
 }
 
+// 種類のボタンの下に出す説明
+const KIND_NOTES: Record<FoodKind, string> = {
+  ingredient: '肉・野菜・ごはん',
+  product: '冷凍食品・総菜',
+  restaurant: 'お店のメニュー',
+};
+
 type Props = {
   initialFood?: Food; // 編集のときだけ渡す
   onSave: (food: Food) => void;
@@ -91,6 +102,7 @@ type Props = {
   onDelete?: () => void; // 編集のときだけ渡す
   onAddToday?: () => void; // 編集のときだけ渡す（今日の食事に追加）
   restaurant?: boolean; // 「外食」タブから追加するとき（店名を必須にして、1食あたりで入れる）
+  defaultCategory?: FoodCategory; // 新しく追加するときの種類（開いたタブに合わせる）
 };
 
 export function FoodFormDialog({
@@ -100,6 +112,7 @@ export function FoodFormDialog({
   onDelete,
   onAddToday,
   restaurant = false,
+  defaultCategory = 'ingredient',
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [values, setValues] = useState<FormValues>(() =>
@@ -110,13 +123,18 @@ export function FoodFormDialog({
         ? { ...emptyValues, unit: '食', baseAmount: '1' }
         : emptyValues,
   );
-  // 店名が入っていれば外食のメニューとして扱う（外食タブから開いたときは店名が必須）
-  const isRestaurant = restaurant || values.shop.trim() !== '' || Boolean(initialFood?.shop);
+  // 食材・市販品・外食のどれか。成分表から選んだら食材、パッケージの値を入れるなら市販品が多い
+  //   編集のときに変えると、その食品を別のタブへ移せる（Claude 連携で登録して種類が違っていたときなど）
+  const [kind, setKind] = useState<FoodKind>(() =>
+    initialFood ? foodKind(initialFood) : restaurant ? 'restaurant' : defaultCategory,
+  );
+  const isRestaurant = kind === 'restaurant';
   const [error, setError] = useState<string | null>(null);
   // 新規追加のときだけ「成分表から探す」を選べる。最初は成分表の検索を出す
   //   外食は成分表にないことが多いので、最初から「自分で入力」にする
+  //   市販品はパッケージの値を入れることが多いので、最初から「自分で入力」にする
   const [mode, setMode] = useState<'search' | 'manual'>(
-    initialFood || restaurant ? 'manual' : 'search',
+    initialFood || restaurant || defaultCategory === 'product' ? 'manual' : 'search',
   );
   // 成分表から選んだ食品（入力欄の上に「〇〇の値を入れました」と出すため）
   const [picked, setPicked] = useState<MextFood | null>(null);
@@ -226,8 +244,9 @@ export function FoodFormDialog({
     const piece = food.piece;
     const values100 = piece ? calcNutrients({ ...food, baseAmount: 100 }, piece.grams) : food;
     setValues((prev) => ({
-      // 店名は入れたままにする（外食のメニューを成分表の料理から登録するとき）
+      // 店名・メーカーは入れたままにする（外食のメニューを成分表の料理から登録するときなど）
       shop: prev.shop,
+      brand: prev.brand,
       estimated: false,
       name: pickedName(food),
       unit: piece ? piece.unit : 'g',
@@ -238,6 +257,8 @@ export function FoodFormDialog({
       carbs: String(values100.carbs),
     }));
     setPicked(food);
+    // 外食のメニューを成分表の料理から登録するときは外食のまま。それ以外は食材にする
+    setKind((prev) => (prev === 'restaurant' ? prev : 'ingredient'));
     setReference(
       piece ? { baseAmount: 1, nutrients: values100 } : { baseAmount: 100, nutrients: food },
     );
@@ -253,7 +274,7 @@ export function FoodFormDialog({
       setError(`1${values.unit}の重さ（g）を入力してください`);
       return;
     }
-    const message = validate(values, restaurant);
+    const message = validate(values, isRestaurant);
     if (message) {
       setError(message);
       return;
@@ -276,9 +297,15 @@ export function FoodFormDialog({
       ...(source ? { source } : {}),
       id: initialFood?.id ?? crypto.randomUUID(),
       name: values.name.trim(),
-      // 店名があれば外食のメニュー。見積もりの印は外食のときだけ付ける
-      ...(values.shop.trim() ? { shop: values.shop.trim() } : {}),
-      ...(values.shop.trim() && values.estimated ? { estimated: true } : {}),
+      // 外食なら店名（見積もりの印も外食のときだけ）。それ以外は食材か市販品か
+      //   市販品のときだけメーカーを残す。種類を変えたときは、前の種類の項目を外す
+      ...(isRestaurant
+        ? {
+            shop: values.shop.trim(),
+            ...(values.estimated ? { estimated: true } : {}),
+          }
+        : { category: kind }),
+      ...(kind === 'product' && values.brand.trim() ? { brand: values.brand.trim() } : {}),
       unit: values.unit,
       baseAmount: Number(values.baseAmount),
       kcal: Number(values.kcal),
@@ -288,17 +315,16 @@ export function FoodFormDialog({
     });
   }
 
-  const shopField = (
-    <label className={styles.field}>
-      {restaurant ? '店名' : '店名（外食のメニューのときだけ）'}
-      <input
-        type="text"
-        placeholder="例：サイゼリヤ"
-        value={values.shop}
-        onChange={(e) => update('shop', e.target.value)}
-      />
-    </label>
-  );
+  // 種類を変える。外食⇔市販品のときは、店名とメーカーを引き継ぐ（コンビニの商品など、どちらにも入れることがあるため）
+  function changeKind(next: FoodKind) {
+    setKind(next);
+    setValues((prev) => ({
+      ...prev,
+      shop: next === 'restaurant' && prev.shop.trim() === '' ? prev.brand : prev.shop,
+      brand: next === 'product' && prev.brand.trim() === '' ? prev.shop : prev.brand,
+    }));
+    setError(null);
+  }
 
   return (
     <dialog
@@ -353,8 +379,38 @@ export function FoodFormDialog({
               </p>
             )}
 
-            {/* 外食タブから開いたときは店名を先に。食品から開いたときは、外食にしたいときだけ入れる */}
-            {restaurant && shopField}
+            <div className={styles.field}>
+              種類
+              {initialFood && (
+                <span className={styles.fieldNote}>変えると、そのタブに移ります</span>
+              )}
+              <div className={styles.kinds} role="group" aria-label="種類">
+                {(['ingredient', 'product', 'restaurant'] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={styles.tab}
+                    aria-pressed={kind === k}
+                    onClick={() => changeKind(k)}
+                  >
+                    {KIND_LABELS[k]}
+                    <span className={styles.tabNote}>{KIND_NOTES[k]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {isRestaurant && (
+              <label className={styles.field}>
+                店名
+                <input
+                  type="text"
+                  placeholder="例：サイゼリヤ"
+                  value={values.shop}
+                  onChange={(e) => update('shop', e.target.value)}
+                />
+              </label>
+            )}
 
             <label className={styles.field}>
               {isRestaurant ? 'メニュー名' : '食品名'}
@@ -366,9 +422,19 @@ export function FoodFormDialog({
               />
             </label>
 
-            {!restaurant && shopField}
+            {kind === 'product' && (
+              <label className={styles.field}>
+                メーカー・ブランド（なくてもOK）
+                <input
+                  type="text"
+                  placeholder="例：ニチレイ、セブン-イレブン"
+                  value={values.brand}
+                  onChange={(e) => update('brand', e.target.value)}
+                />
+              </label>
+            )}
 
-            {values.shop.trim() !== '' && (
+            {isRestaurant && (
               <label className={styles.check}>
                 <input
                   type="checkbox"

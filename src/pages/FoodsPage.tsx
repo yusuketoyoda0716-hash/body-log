@@ -9,13 +9,37 @@ import { useTutorial } from '../tutorial/tutorialContext';
 import { mealLabel } from '../constants/meals';
 import type { Food, MealEntry, Recipe } from '../types';
 import { formatDateLabel } from '../utils/date';
-import { foodLabel, groupByShop, isRestaurantFood } from '../utils/foodLabel';
+import {
+  SORT_OPTIONS,
+  normalizedBase,
+  normalizedNutrients,
+  sortFoods,
+  type SortKey,
+} from '../utils/sortFoods';
+import {
+  KIND_LABELS,
+  foodCategory,
+  foodKind,
+  foodLabel,
+  groupByShop,
+  isRestaurantFood,
+  matchesKeyword,
+  type FoodKind,
+} from '../utils/foodLabel';
 import styles from './FoodsPage.module.css';
 
-type Tab = 'foods' | 'restaurants' | 'recipes';
+type Tab = 'ingredients' | 'products' | 'restaurants' | 'recipes';
+
+// 食品の種類と、それが出るタブ
+const KIND_TABS: Record<FoodKind, Tab> = {
+  ingredient: 'ingredients',
+  product: 'products',
+  restaurant: 'restaurants',
+};
 
 const TABS: { tab: Tab; label: string; noun: string }[] = [
-  { tab: 'foods', label: '食品', noun: '食品' },
+  { tab: 'ingredients', label: '食材', noun: '食材' },
+  { tab: 'products', label: '市販品', noun: '市販品' },
   { tab: 'restaurants', label: '外食', noun: '外食のメニュー' },
   { tab: 'recipes', label: 'レシピ', noun: 'レシピ' },
 ];
@@ -47,11 +71,14 @@ function recipeTarget(recipe: Recipe): QuickAddTarget {
 export function FoodsPage() {
   const repository = useRepository();
   const tutorial = useTutorial();
-  const [tab, setTab] = useState<Tab>('foods');
+  const [tab, setTab] = useState<Tab>('ingredients');
   const [foods, setFoods] = useState<Food[] | null>(null);
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
   const [query, setQuery] = useState('');
-  // null = 閉じている / 'new' = 食品の新規追加 / 'new-restaurant' = 外食メニューの新規追加 / Food = 編集中
+  // 並べ替え（名前順、または P・F・C・カロリーが多い順）
+  const [sortKey, setSortKey] = useState<SortKey>('name');
+  const bySort = sortKey !== 'name';
+  // null = 閉じている / 'new' = 食材・市販品の新規追加 / 'new-restaurant' = 外食メニューの新規追加 / Food = 編集中
   const [editing, setEditing] = useState<Food | 'new' | 'new-restaurant' | null>(null);
   // 中身を表示しているレシピ
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
@@ -61,6 +88,8 @@ export function FoodsPage() {
   const [adding, setAdding] = useState<QuickAddTarget | null>(null);
   // 追加したあとに出すお知らせ
   const [notice, setNotice] = useState<string | null>(null);
+  // 種類を変えて別のタブへ移したときのお知らせ（移った先のタブを開けるようにする）
+  const [moved, setMoved] = useState<{ text: string; tab: Tab } | null>(null);
 
   useEffect(() => {
     repository.getFoods().then(setFoods);
@@ -70,6 +99,21 @@ export function FoodsPage() {
   async function handleSave(food: Food) {
     await repository.saveFood(food);
     setFoods(await repository.getFoods());
+    // 編集で種類を変えたら、どこへ移ったかを知らせる
+    const before = editing && typeof editing === 'object' ? foodKind(editing) : null;
+    const after = foodKind(food);
+    setMoved(
+      before && before !== after
+        ? {
+            text: `「${foodLabel(food)}」を${KIND_LABELS[after]}に移動しました`,
+            tab: KIND_TABS[after],
+          }
+        : null,
+    );
+    // お知らせは画面の上に出るので、上まで戻す（スクロールするのはページ全体ではなく main の中）
+    if (before && before !== after) {
+      document.querySelector('main')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
     setEditing(null);
     tutorial.notify('food-saved');
   }
@@ -124,16 +168,42 @@ export function FoodsPage() {
   }
 
   const keyword = query.trim();
-  // 食品タブには店名のないもの、外食タブには店名のあるものを出す（外食は店名でも検索できる）
-  const visibleFoods =
-    foods?.filter((food) => !isRestaurantFood(food) && food.name.includes(keyword)) ?? [];
-  const shopGroups = groupByShop(
-    foods?.filter((food) => isRestaurantFood(food) && foodLabel(food).includes(keyword)) ?? [],
+  // 食材・市販品タブには店名のないものを種類ごとに、外食タブには店名のあるものを出す（外食は店名でも検索できる）
+  const visibleFoods = sortFoods(
+    foods?.filter(
+      (food) =>
+        !isRestaurantFood(food) &&
+        foodCategory(food) === (tab === 'products' ? 'product' : 'ingredient') &&
+        matchesKeyword(food, keyword),
+    ) ?? [],
+    sortKey,
   );
-  const visibleRecipes = recipes?.filter((recipe) => recipe.name.includes(keyword)) ?? [];
+  const shopGroups = groupByShop(
+    foods?.filter((food) => isRestaurantFood(food) && matchesKeyword(food, keyword)) ?? [],
+  );
+  // 栄養素で並べ替えるときは、外食も店ごとにまとめず「店名 メニュー名」で1つの一覧にする
+  //   （並べ替え用に名前を「店名 メニュー名」にした形で並べ、もとの食品に戻す）
+  const visibleRestaurants = sortFoods(
+    (foods ?? [])
+      .filter((food) => isRestaurantFood(food) && matchesKeyword(food, keyword))
+      .map((food) => ({ ...food, name: foodLabel(food), original: food })),
+    sortKey,
+  ).map((item) => item.original);
+  // レシピは1食あたりの値で比べる
+  const visibleRecipes = sortFoods(
+    (recipes ?? [])
+      .filter((recipe) => recipe.name.includes(keyword))
+      .map((recipe) => ({
+        ...recipe,
+        unit: '食' as const,
+        baseAmount: 1,
+        original: recipe,
+      })),
+    sortKey,
+  ).map((item) => item.original);
   const loading = tab === 'recipes' ? recipes === null : foods === null;
   const visibleCount =
-    tab === 'foods'
+    tab === 'ingredients' || tab === 'products'
       ? visibleFoods.length
       : tab === 'restaurants'
         ? shopGroups.length
@@ -141,29 +211,44 @@ export function FoodsPage() {
   const noun = TABS.find((t) => t.tab === tab)?.noun ?? '';
 
   // 食品・外食メニューの1行（タップで編集）
-  const foodRow = (food: Food) => (
-    <li key={food.id}>
-      <button type="button" className={styles.item} onClick={() => setEditing(food)}>
-        <span className={styles.info}>
-          <span className={styles.name}>
-            {food.name}
-            {food.estimated && <span className={styles.estimated}>見積もり</span>}
-          </span>
-          <span className={styles.sub}>
-            {food.baseAmount}
-            {food.unit} あたり
-          </span>
-          {food.source && <span className={styles.source}>出典：{food.source}</span>}
-        </span>
-        <span className={styles.nutrients}>
-          <span className={styles.kcal}>{food.kcal} kcal</span>
-          <span className={styles.sub}>
-            P{food.protein} F{food.fat} C{food.carbs}
-          </span>
-        </span>
-      </button>
-    </li>
+  // 並べ替えに使っている栄養素を太字にする
+  const pfc = (values: { protein: number; fat: number; carbs: number }) => (
+    <>
+      <span className={sortKey === 'protein' ? styles.sorted : undefined}>P{values.protein}</span>{' '}
+      <span className={sortKey === 'fat' ? styles.sorted : undefined}>F{values.fat}</span>{' '}
+      <span className={sortKey === 'carbs' ? styles.sorted : undefined}>C{values.carbs}</span>
+    </>
   );
+
+  const foodRow = (food: Food, withShop = false) => {
+    // 並べ替え中は、比べやすいように100gあたり（個などは1つあたり）の値で見せる
+    const shown = bySort ? normalizedNutrients(food) : food;
+    const base = bySort ? normalizedBase(food) : food.baseAmount;
+    return (
+      <li key={food.id}>
+        <button type="button" className={styles.item} onClick={() => setEditing(food)}>
+          <span className={styles.info}>
+            <span className={styles.name}>
+              {withShop ? foodLabel(food) : food.name}
+              {food.estimated && <span className={styles.estimated}>見積もり</span>}
+            </span>
+            <span className={styles.sub}>
+              {food.brand && `${food.brand}・`}
+              {base}
+              {food.unit} あたり
+            </span>
+            {food.source && <span className={styles.source}>出典：{food.source}</span>}
+          </span>
+          <span className={styles.nutrients}>
+            <span className={`${styles.kcal} ${sortKey === 'kcal' ? styles.sorted : ''}`}>
+              {shown.kcal} kcal
+            </span>
+            <span className={styles.sub}>{pfc(shown)}</span>
+          </span>
+        </button>
+      </li>
+    );
+  };
 
   return (
     <>
@@ -214,13 +299,29 @@ export function FoodsPage() {
         </p>
       )}
 
+      {moved && (
+        <p className={styles.notice} role="status">
+          <span>{moved.text}</span>
+          <button
+            type="button"
+            className={styles.noticeLink}
+            onClick={() => {
+              setTab(moved.tab);
+              setMoved(null);
+            }}
+          >
+            {TABS.find((t) => t.tab === moved.tab)?.label}を見る
+          </button>
+        </p>
+      )}
+
       <label className={styles.search}>
         検索
         <input
           type="search"
           placeholder={
-            tab === 'foods'
-              ? '食品名で検索'
+            tab === 'ingredients' || tab === 'products'
+              ? '食品名・メーカーで検索'
               : tab === 'restaurants'
                 ? '店名・メニュー名で検索'
                 : 'レシピ名で検索'
@@ -230,20 +331,45 @@ export function FoodsPage() {
         />
       </label>
 
+      {/* 並べ替え：名前順のほか、P・F・C・カロリーが多い順にできる */}
+      <div className={styles.sortRow} role="group" aria-label="並べ替え">
+        <span className={styles.sortLabel}>並べ替え</span>
+        {SORT_OPTIONS.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            className={styles.sortChip}
+            aria-pressed={sortKey === option.key}
+            onClick={() => setSortKey(option.key)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {bySort && tab !== 'recipes' && (
+        <p className={styles.sortNote}>
+          多い順に並べています。gの食品は100gあたり、個・枚などは1つあたりの値で比べます
+        </p>
+      )}
+
       {loading ? (
         <p className={styles.message}>読み込み中…</p>
       ) : visibleCount === 0 ? (
         <p className={styles.message}>
           {keyword
             ? `「${keyword}」に一致する${noun}はありません`
-            : tab === 'foods'
-              ? 'まだ食品が登録されていません'
-              : tab === 'restaurants'
-                ? 'まだ外食のメニューがありません。「＋ 追加」か、Claude連携で「マクドナルドのビッグマックとポテトMを登録して」のように送ると登録できます'
-                : 'まだレシピがありません。「＋ 追加」か、Claude連携で「カレーを4食分作った。材料は…」と送ると登録できます'}
+            : tab === 'ingredients'
+              ? 'まだ食材が登録されていません。「＋ 追加」で成分表から探して登録できます'
+              : tab === 'products'
+                ? 'まだ市販品が登録されていません。「＋ 追加」でパッケージの値を入れるか、Claude連携で商品の写真を送ると登録できます'
+                : tab === 'restaurants'
+                  ? 'まだ外食のメニューがありません。「＋ 追加」か、Claude連携で「マクドナルドのビッグマックとポテトMを登録して」のように送ると登録できます'
+                  : 'まだレシピがありません。「＋ 追加」か、Claude連携で「カレーを4食分作った。材料は…」と送ると登録できます'}
         </p>
-      ) : tab === 'foods' ? (
-        <ul className={styles.list}>{visibleFoods.map(foodRow)}</ul>
+      ) : tab === 'ingredients' || tab === 'products' ? (
+        <ul className={styles.list}>{visibleFoods.map((food) => foodRow(food))}</ul>
+      ) : tab === 'restaurants' && bySort ? (
+        <ul className={styles.list}>{visibleRestaurants.map((food) => foodRow(food, true))}</ul>
       ) : tab === 'restaurants' ? (
         // 店名を見出しにして、お店ごとにメニューを並べる
         <div className={styles.shops}>
@@ -253,7 +379,7 @@ export function FoodsPage() {
                 {group.shop}
                 <span className={styles.shopCount}>{group.items.length}品</span>
               </h2>
-              <ul className={styles.list}>{group.items.map(foodRow)}</ul>
+              <ul className={styles.list}>{group.items.map((food) => foodRow(food))}</ul>
             </section>
           ))}
         </div>
@@ -273,10 +399,10 @@ export function FoodsPage() {
                   </span>
                 </span>
                 <span className={styles.nutrients}>
-                  <span className={styles.kcal}>{recipe.kcal} kcal</span>
-                  <span className={styles.sub}>
-                    1食あたり P{recipe.protein} F{recipe.fat} C{recipe.carbs}
+                  <span className={`${styles.kcal} ${sortKey === 'kcal' ? styles.sorted : ''}`}>
+                    {recipe.kcal} kcal
                   </span>
+                  <span className={styles.sub}>1食あたり {pfc(recipe)}</span>
                 </span>
               </button>
             </li>
@@ -285,7 +411,13 @@ export function FoodsPage() {
       )}
 
       {/* 新規と編集で同じフォームを使い回す */}
-      {editing === 'new' && <FoodFormDialog onSave={handleSave} onClose={closeFoodForm} />}
+      {editing === 'new' && (
+        <FoodFormDialog
+          defaultCategory={tab === 'products' ? 'product' : 'ingredient'}
+          onSave={handleSave}
+          onClose={closeFoodForm}
+        />
+      )}
       {editing === 'new-restaurant' && (
         <FoodFormDialog restaurant onSave={handleSave} onClose={() => setEditing(null)} />
       )}

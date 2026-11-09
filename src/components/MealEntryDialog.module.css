@@ -39,9 +39,32 @@
   max-height: min(360px, 50vh);
 }
 
-/* 最近・食品・外食・レシピの4つに分ける */
-.tabs4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+/* 最近・食材・市販品・外食・レシピの切り替え（食品画面のタブと同じセグメント型） */
+.segment {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.segmentButton {
+  height: 34px;
+  padding: 0 2px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 13px;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.segmentButton[aria-pressed='true'] {
+  background: var(--color-bg);
+  color: var(--color-primary);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
 }
 
 .list li + li {

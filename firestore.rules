@@ -62,7 +62,7 @@ service cloud.firestore {
 
     function isFood(d, foodId) {
       return d.keys().hasAll(['id', 'name', 'unit', 'baseAmount', 'kcal', 'protein', 'fat', 'carbs'])
-        && d.keys().hasOnly(['id', 'name', 'unit', 'baseAmount', 'kcal', 'protein', 'fat', 'carbs', 'source', 'shop', 'estimated'])
+        && d.keys().hasOnly(['id', 'name', 'unit', 'baseAmount', 'kcal', 'protein', 'fat', 'carbs', 'source', 'category', 'shop', 'brand', 'estimated'])
         && d.id == foodId
         && isText(d.name, 100)
         && isUnit(d.unit)
@@ -70,7 +70,10 @@ service cloud.firestore {
         && hasNutrients(d)
         && (!('source' in d) || isText(d.source, 500))
         // 外食のメニューなら店名と、見積もりの値かどうか
+        // 食材か市販品か
+        && (!('category' in d) || d.category in ['ingredient', 'product'])
         && (!('shop' in d) || isText(d.shop, 50))
+        && (!('brand' in d) || isText(d.brand, 50))
         && (!('estimated' in d) || d.estimated is bool);
     }
 

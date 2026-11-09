@@ -25,6 +25,7 @@ import { defaultGoals } from '../src/constants/goals.js';
 import { MEXT_SOURCE } from '../src/constants/sources.js';
 import type {
   Food,
+  FoodCategory,
   Goals,
   MealEntry,
   MealType,
@@ -32,7 +33,13 @@ import type {
   Recipe,
   RecipeIngredient,
 } from '../src/types/index.js';
-import { foodLabel, isSameFood } from '../src/utils/foodLabel.js';
+import {
+  CATEGORY_LABELS,
+  foodCategory,
+  foodKind,
+  foodLabel,
+  isSameFood,
+} from '../src/utils/foodLabel.js';
 import { displayName, searchFoods } from '../src/utils/foodSearch.js';
 import { describeRange, round1, sumNutrients } from '../src/utils/nutrition.js';
 import { buildRecipe, recipeTotal } from '../src/utils/recipe.js';
@@ -151,12 +158,43 @@ const shopSchema = z
   .describe(
     '外食のときの店名（例：サイゼリヤ）。入れると name はメニュー名として扱い、アプリの「外食」タブに店ごとにまとまる',
   );
+const categorySchema = z
+  .enum(['ingredient', 'product'])
+  .optional()
+  .describe(
+    '食材（ingredient：肉・魚・野菜・ごはんなど素材そのもの）か、市販品（product：冷凍食品・総菜・コンビニ商品・お菓子・プロテインなど）か。外食（shop あり）では不要。省略すると、上書きのときは今の種類のまま、新しく登録するときは出典（valueSource）から決まる',
+  );
+const brandSchema = z
+  .string()
+  .min(1)
+  .max(50)
+  .optional()
+  .describe(
+    '市販品のメーカー・ブランド（例：ニチレイ、明治、セブン-イレブン）。パッケージの写真や商品ページから分かれば入れる。name には商品名だけを入れ、メーカー名を含めない。外食では使わない（shop を使う）',
+  );
 const estimatedSchema = z
   .boolean()
   .optional()
   .describe(
     '量や値を見積もったときは true（外食で公式の値がない・写真から量を見積もった など）。アプリに「見積もり」と表示される',
   );
+
+// 外食なら店名、そうでなければ食材か市販品か（市販品ならメーカーも）
+//   種類の指定がなければ出典から決める（「日本食品標準成分表」とあれば食材）
+function kindFields(
+  shop: string | undefined,
+  category: FoodCategory | undefined,
+  brand: string | undefined,
+  source: string | undefined,
+): Pick<Food, 'shop' | 'category' | 'brand'> {
+  if (shop) return { shop };
+  const kind = category ?? foodCategory({ source });
+  const maker = brand?.trim();
+  return {
+    category: kind,
+    ...(kind === 'product' && maker ? { brand: maker } : {}),
+  };
+}
 
 const entrySchema = z.discriminatedUnion('source', [
   // 登録食品を使う：量から計算する
@@ -197,10 +235,14 @@ const entrySchema = z.discriminatedUnion('source', [
     mealType: mealTypeSchema.optional(),
     estimated: estimatedSchema,
     shop: shopSchema,
+    category: categorySchema,
+    brand: brandSchema,
     name: z
       .string()
       .min(1)
-      .describe('食品名（外食なら店名を含めないメニュー名）。品目がなく合計だけなら「夕食（まとめ）」など'),
+      .describe(
+        '食品名（外食なら店名を含めないメニュー名）。品目がなく合計だけなら「夕食（まとめ）」など',
+      ),
     amount: amountSchema.describe('量'),
     unit: unitSchema.describe('量の単位'),
     kcal: nutrientSchema.describe('この量でのカロリー'),
@@ -217,7 +259,9 @@ const entrySchema = z.discriminatedUnion('source', [
     saveAsFood: z
       .boolean()
       .optional()
-      .describe('登録食品に自動で追加するか（省略時は追加）。「夕食（まとめ）」のような合計だけの記録では false'),
+      .describe(
+        '登録食品に自動で追加するか（省略時は追加）。「夕食（まとめ）」のような合計だけの記録では false',
+      ),
   }),
 ]);
 
@@ -268,6 +312,9 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
 
 食品を登録・修正するとき（「プロテインの値はこれ」「この商品を登録して」など）：
 - save_food を使う。同じ名前の食品があれば上書きされる
+- アプリの食品画面は「食材」（肉・野菜・ごはんなど）と「市販品」（冷凍食品・総菜・コンビニ商品・お菓子・プロテインなど）に分かれる。save_food と custom では category に ingredient（食材）か product（市販品）を入れる。上書きのときに省略すると、今の種類のまま変わらない
+- 市販品は、メーカー・ブランド（パッケージに書いてある会社名・ブランド名。コンビニのプライベートブランドならそのコンビニ名）を brand に入れ、name には商品名だけを入れる。分からなければ brand は省略する
+- 成分表の値をもとにしたときは valueSource に「日本食品標準成分表」と書く
 - 卵・パン・バナナ・ウインナーなど、ふつう個数で数えるものは unit を 個・枚・本 にして、baseAmount 1（1つあたり）で登録する。成分表（100gあたり）の値から、1つの重さ（卵Mサイズ 約50g、食パン6枚切り 約60g、バナナ 約100g など）で1つ分を計算し、valueSource に「1個＝50gとして計算」のように書く
 
 料理を作ったとき（「カレーを4食分作った。材料は…」など）：
@@ -299,7 +346,8 @@ const INSTRUCTIONS = `body-log は、食事のカロリー・PFC を記録する
   - 料理はできるだけ ごはん・おかず・汁物 のように分け、それぞれ search_food で探す（成分表には から揚げ・ハンバーグ・カレー などできあがりの料理もある）
   - 量を見積もった記録は estimated: true にする。custom で値を見積もったときは valueKind: estimate にする（登録食品には残らない）
 - メニュー表や店内掲示の kcal の写真：書かれている値を custom、valueKind: official で記録する
-- パッケージや栄養成分表示の写真：書かれている値を読み取り、save_food で登録してから記録する。valueSource には「パッケージの栄養成分表示」のように書く
+- パッケージや栄養成分表示の写真：書かれている値を読み取り、save_food（category: product）で登録してから記録する。valueSource には「パッケージの栄養成分表示」のように書く
+  - 写真に写っているメーカー・ブランド名（ロゴや「製造者」「販売者」の表示）も読み取って brand に入れる。登録したら、読み取ったメーカー名もユーザーに伝える
 
 すでに計算済みの記録（過去のチャットなど）を取り込むときは、source を custom にして、書かれている値をそのまま記録する。
 「何個」「何枚」「何本」「何杯」で、成分表（グラム）しか候補がないときは、1つの重さの目安からグラム数にして記録してよいが、何gとして計算したかをユーザーに伝える。`;
@@ -398,7 +446,7 @@ function createServer(uid: string) {
   }
 
   const server = new McpServer(
-    { name: 'body-log', version: '1.7.0' },
+    { name: 'body-log', version: '1.9.0' },
     { instructions: INSTRUCTIONS },
   );
 
@@ -428,13 +476,18 @@ function createServer(uid: string) {
         })),
         // 外食のメニューは「店名 メニュー名」で探せるようにする
         registered: searchFoods(
-          registered.map((f) => ({ food: f, name: foodLabel(f) })),
+          registered.map((f) => ({
+            food: f,
+            name: f.brand ? `${foodLabel(f)} ${f.brand}` : foodLabel(f),
+          })),
           query,
           10,
         ).map(({ food: f }) => ({
           id: f.id,
           name: f.name,
           ...(f.shop ? { shop: f.shop } : {}),
+          ...(f.brand ? { brand: f.brand } : {}),
+          kind: foodKind(f) === 'restaurant' ? '外食' : CATEGORY_LABELS[foodCategory(f)],
           per: `${f.baseAmount}${f.unit}あたり`,
           ...pickNutrients(f),
           ...(f.estimated ? { estimated: true } : {}),
@@ -506,7 +559,8 @@ function createServer(uid: string) {
           });
         } else if (input.source === 'recipe') {
           const recipe = recipes.find((r) => r.id === input.recipeId);
-          if (!recipe) return errorResult(`${i + 1}件目：レシピ ${input.recipeId} が見つかりません`);
+          if (!recipe)
+            return errorResult(`${i + 1}件目：レシピ ${input.recipeId} が見つかりません`);
           docs.push({
             ...base,
             foodId: `recipe:${recipe.id}`,
@@ -517,7 +571,8 @@ function createServer(uid: string) {
           });
         } else if (input.source === 'mext') {
           const food = mext.find((f) => f.code === input.code);
-          if (!food) return errorResult(`${i + 1}件目：成分表の食品 ${input.code} が見つかりません`);
+          if (!food)
+            return errorResult(`${i + 1}件目：成分表の食品 ${input.code} が見つかりません`);
           const name = input.name ?? displayName(food.name);
           docs.push({
             ...base,
@@ -527,7 +582,14 @@ function createServer(uid: string) {
             amount: input.amount,
             ...scale(food, 100, input.amount),
           });
-          addFoodIfNew({ name, unit: 'g', baseAmount: 100, ...pickNutrients(food), source: MEXT_SOURCE });
+          addFoodIfNew({
+            name,
+            category: 'ingredient',
+            unit: 'g',
+            baseAmount: 100,
+            ...pickNutrients(food),
+            source: MEXT_SOURCE,
+          });
         } else {
           const values = {
             kcal: round1(input.kcal),
@@ -549,7 +611,7 @@ function createServer(uid: string) {
             // 記録した量をそのまま基準量にする（例：1個あたり、250gあたり）
             addFoodIfNew({
               name: input.name.trim(),
-              ...(shop ? { shop } : {}),
+              ...kindFields(shop, input.category, input.brand, input.valueSource),
               unit: input.unit,
               baseAmount: input.amount,
               ...values,
@@ -577,7 +639,9 @@ function createServer(uid: string) {
           ...(d.estimated ? { estimated: true } : {}),
         })),
         // 登録食品に自動で追加した食品
-        addedFoods: newFoods.map((f) => `${f.name}（${f.baseAmount}${f.unit}あたり ${f.kcal}kcal）`),
+        addedFoods: newFoods.map(
+          (f) => `${f.name}（${f.baseAmount}${f.unit}あたり ${f.kcal}kcal）`,
+        ),
         // 記録した日の合計もあわせて返す（別のツールを呼ばなくても伝えられるように）
         days: await Promise.all(dates.map(daySummary)),
       });
@@ -646,12 +710,18 @@ function createServer(uid: string) {
         name: z
           .string()
           .min(1)
-          .describe('食品名（例：プロテイン、セブンのサラダチキン）。外食なら店名を含めないメニュー名'),
+          .describe(
+            '食品名（例：サラダチキン、ザバス ミルクプロテイン）。メーカー名は brand に、外食なら店名は shop に分けて入れる',
+          ),
         shop: shopSchema,
+        category: categorySchema,
+        brand: brandSchema,
         estimated: z
           .boolean()
           .optional()
-          .describe('外食で、公式の値ではなく見積もった値のときは true（一覧に「見積もり」と表示される）'),
+          .describe(
+            '外食で、公式の値ではなく見積もった値のときは true（一覧に「見積もり」と表示される）',
+          ),
         unit: unitSchema.describe('単位'),
         baseAmount: amountSchema.describe('基準量（例：100g あたりなら 100、1個あたりなら 1）'),
         kcal: nutrientSchema.describe('基準量あたりのカロリー'),
@@ -665,11 +735,18 @@ function createServer(uid: string) {
       const registered = await getRegisteredFoods();
       const shop = input.shop?.trim();
       const existing = registered.find((f) => isSameFood(f, { name: input.name.trim(), shop }));
+      // 上書きのときは、種類とメーカーを指定がなければ今のままにする
+      //   （指定しないで上書きすると、出典から決め直されて市販品が食材に移ってしまうことがあった）
+      const keep = existing && !existing.shop ? existing : undefined;
       const food: Food = {
         id: existing?.id ?? randomUUID(),
         name: input.name.trim(),
-        // 店名があれば外食のメニュー。見積もりの印は外食のときだけ付ける
-        ...(shop ? { shop } : {}),
+        ...kindFields(
+          shop,
+          input.category ?? (keep ? foodCategory(keep) : undefined),
+          input.brand ?? keep?.brand,
+          input.valueSource,
+        ),
         ...(shop && input.estimated ? { estimated: true } : {}),
         unit: input.unit,
         baseAmount: input.baseAmount,
@@ -682,7 +759,11 @@ function createServer(uid: string) {
       await foodsCol.doc(food.id).set(food);
       return textResult({
         result: existing ? '同じ名前の食品を上書きしました' : '新しく登録しました',
-        food: { ...food, label: foodLabel(food), per: `${food.baseAmount}${food.unit}あたり` },
+        food: {
+          ...food,
+          label: foodLabel(food),
+          per: `${food.baseAmount}${food.unit}あたり`,
+        },
       });
     },
   );
@@ -720,7 +801,8 @@ function createServer(uid: string) {
           });
         } else if (input.source === 'mext') {
           const food = mext.find((f) => f.code === input.code);
-          if (!food) return errorResult(`材料${i + 1}：成分表の食品 ${input.code} が見つかりません`);
+          if (!food)
+            return errorResult(`材料${i + 1}：成分表の食品 ${input.code} が見つかりません`);
           items.push({
             name: input.name ?? displayName(food.name),
             unit: 'g',
